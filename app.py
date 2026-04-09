@@ -13,7 +13,6 @@ import wave
 import tempfile
 import subprocess
 import threading
-import struct
 import time
 import sqlite3
 import logging
@@ -224,40 +223,24 @@ class VoiceApp(rumps.App):
         threading.Thread(target=self._record_loop, daemon=True).start()
 
     def _record_loop(self):
-        silent_chunks = 0
-        started_speaking = False
         start_time = time.time()
 
-        while self.recording and (time.time() - start_time) < 30:
+        while self.recording and (time.time() - start_time) < 120:
             try:
                 data = self.stream.read(1024, exception_on_overflow=False)
                 self.frames.append(data)
-
-                shorts = struct.unpack(f"{len(data)//2}h", data)
-                rms = (sum(s**2 for s in shorts) / len(shorts)) ** 0.5
-
-                if rms > 500:
-                    started_speaking = True
-                    silent_chunks = 0
-                else:
-                    silent_chunks += 1
-
-                if started_speaking and silent_chunks > 23:
-                    log.info(f"record_loop: auto-stop after silence, frames={len(self.frames)}")
-                    break
-
             except Exception as e:
                 log.error(f"record_loop: exception: {e}")
                 break
 
         duration = time.time() - start_time
-        log.info(f"record_loop: ended, duration={duration:.1f}s, frames={len(self.frames)}, recording_flag={self.recording}")
+        log.info(f"record_loop: ended, duration={duration:.1f}s, frames={len(self.frames)}")
 
-        # Only handle stop if we weren't already stopped by the user
+        # Only handle stop if we hit the 120s max (user didn't click Stop)
         with self._lock:
             if self.recording:
                 self.recording = False
-                log.info("record_loop: auto-stopping")
+                log.info("record_loop: max duration reached")
                 threading.Thread(target=lambda: play_sound("Pop"), daemon=True).start()
                 self._cleanup_stream()
                 self._do_transcription()
@@ -348,15 +331,23 @@ class VoiceApp(rumps.App):
                 p.communicate(text.encode())
                 log.info("transcribe: copied to clipboard")
 
-                # Paste into active app
-                time.sleep(0.1)
-                pasted = paste_text()
-                log.info(f"transcribe: paste result={pasted}")
+                # Paste into active app (requires Accessibility)
+                ax = check_accessibility()
+                log.info(f"transcribe: accessibility={ax} before paste")
+                pasted = False
+                if ax:
+                    time.sleep(0.1)
+                    pasted = paste_text()
+                    log.info(f"transcribe: paste result={pasted}")
 
                 threading.Thread(target=lambda: play_sound("Glass"), daemon=True).start()
 
                 if pasted:
                     rumps.notification("Pasted", f"{elapsed:.1f}s", text[:60])
+                elif not ax:
+                    rumps.notification("Copied (paste needs Accessibility)",
+                                     "Click Permissions in menu to fix",
+                                     text[:60])
                 else:
                     rumps.notification("Copied - Press Cmd+V", f"{elapsed:.1f}s", text[:60])
             else:
