@@ -16,6 +16,7 @@ import threading
 import struct
 import time
 import sqlite3
+import logging
 from pathlib import Path
 
 import rumps
@@ -34,11 +35,21 @@ from Quartz import (
 DATA_DIR = Path.home() / ".voice-transcriber"
 DB_PATH = DATA_DIR / "history.db"
 SETUP_DONE = DATA_DIR / ".setup_done"
+LOG_PATH = DATA_DIR / "app.log"
+
+# Logging to file (stdout is swallowed by .app bundle)
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+logging.basicConfig(
+    filename=str(LOG_PATH),
+    level=logging.DEBUG,
+    format="%(asctime)s %(levelname)s %(message)s",
+    datefmt="%H:%M:%S",
+)
+log = logging.getLogger("voice")
 
 # Python path for subprocess transcription (avoids MLX/rumps thread deadlock)
 PYTHON = "/usr/bin/python3"
 
-# Inline script for subprocess transcription — keeps MLX isolated from rumps
 TRANSCRIBE_SCRIPT = '''
 import sys, os
 sys.path.insert(0, "/Users/chan/Library/Python/3.9/lib/python/site-packages")
@@ -55,21 +66,24 @@ print(result.get("text", "").strip())
 
 def transcribe_audio(wav_path):
     """Run mlx_whisper in a subprocess to avoid MLX/rumps thread deadlock."""
+    log.info(f"transcribe_audio: starting subprocess for {wav_path}")
+    env = {**os.environ, "PYTHONIOENCODING": "utf-8", "LANG": "en_US.UTF-8"}
     result = subprocess.run(
         [PYTHON, "-c", TRANSCRIBE_SCRIPT, wav_path],
-        capture_output=True, text=True, timeout=60
+        capture_output=True, text=True, encoding="utf-8",
+        timeout=60, env=env
     )
+    log.info(f"transcribe_audio: rc={result.returncode} stdout={result.stdout.strip()!r}")
     if result.returncode != 0:
-        print(f"Transcribe stderr: {result.stderr.strip()}")
+        log.error(f"transcribe_audio: stderr={result.stderr.strip()[:300]}")
     return result.stdout.strip()
 
 def play_sound(sound_name):
-    """Play system sound."""
     subprocess.run(['afplay', f'/System/Library/Sounds/{sound_name}.aiff'],
                    capture_output=True)
 
 def paste_text():
-    """Paste using CGEvent (Cmd+V) — same process, uses app's Accessibility permission."""
+    """Paste using CGEvent (Cmd+V)."""
     try:
         source = CGEventSourceCreate(kCGEventSourceStateHIDSystemState)
         event_down = CGEventCreateKeyboardEvent(source, 9, True)
@@ -79,17 +93,16 @@ def paste_text():
         event_up = CGEventCreateKeyboardEvent(source, 9, False)
         CGEventSetFlags(event_up, kCGEventFlagMaskCommand)
         CGEventPost(kCGAnnotatedSessionEventTap, event_up)
+        log.info("paste_text: CGEvent posted successfully")
         return True
     except Exception as e:
-        print(f"Paste failed: {e}")
+        log.error(f"paste_text: failed: {e}")
         return False
 
 def check_accessibility():
-    """Check if we have accessibility permissions."""
     return AXIsProcessTrustedWithOptions(None)
 
 def request_accessibility():
-    """Trigger native macOS accessibility permission dialog."""
     options = {"AXTrustedCheckOptionPrompt": True}
     return AXIsProcessTrustedWithOptions(options)
 
@@ -103,6 +116,7 @@ class VoiceApp(rumps.App):
         self.stream = None
         self.pa = None
         self.model_ready = False
+        self._lock = threading.Lock()
 
         self._setup_db()
         self._build_menu()
@@ -122,22 +136,21 @@ class VoiceApp(rumps.App):
 
     def _startup(self):
         self.title = "⏳"
+        log.info("startup: begin")
 
-        # Only prompt for accessibility on first launch
-        if not check_accessibility():
-            if not SETUP_DONE.exists():
-                request_accessibility()
-                SETUP_DONE.touch()
+        ax = check_accessibility()
+        log.info(f"startup: accessibility={ax}")
+        if not ax and not SETUP_DONE.exists():
+            request_accessibility()
+            SETUP_DONE.touch()
 
-        # Warm up model in subprocess (downloads on first run, fast after)
         self._preload_model()
 
         self.title = "🎤"
         self.model_ready = True
-        print("Ready!")
+        log.info("startup: ready")
 
     def _preload_model(self):
-        """Warm up the model via subprocess."""
         try:
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
                 path = f.name
@@ -149,9 +162,9 @@ class VoiceApp(rumps.App):
                 wf.close()
             transcribe_audio(path)
             os.unlink(path)
-            print("Model cached.")
+            log.info("preload: model cached")
         except Exception as e:
-            print(f"Model preload error: {e}")
+            log.error(f"preload: error: {e}")
 
     def _setup_db(self):
         DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -167,7 +180,6 @@ class VoiceApp(rumps.App):
         conn.close()
 
     def _open_accessibility(self, _):
-        """Request accessibility permission via native macOS dialog."""
         if check_accessibility():
             rumps.alert("Permissions OK", "Accessibility permission is already granted.")
         else:
@@ -192,6 +204,7 @@ class VoiceApp(rumps.App):
             self._start_recording()
 
     def _start_recording(self):
+        log.info("recording: START")
         self.recording = True
         self.frames = []
         self.title = "🔴"
@@ -230,62 +243,80 @@ class VoiceApp(rumps.App):
                     silent_chunks += 1
 
                 if started_speaking and silent_chunks > 23:
+                    log.info(f"record_loop: auto-stop after silence, frames={len(self.frames)}")
                     break
 
-            except:
+            except Exception as e:
+                log.error(f"record_loop: exception: {e}")
                 break
 
-        if self.recording:
-            self.recording = False
-            threading.Thread(target=lambda: play_sound("Pop"), daemon=True).start()
-            self._cleanup_stream()
-            self._begin_transcription()
+        duration = time.time() - start_time
+        log.info(f"record_loop: ended, duration={duration:.1f}s, frames={len(self.frames)}, recording_flag={self.recording}")
+
+        # Only handle stop if we weren't already stopped by the user
+        with self._lock:
+            if self.recording:
+                self.recording = False
+                log.info("record_loop: auto-stopping")
+                threading.Thread(target=lambda: play_sound("Pop"), daemon=True).start()
+                self._cleanup_stream()
+                self._do_transcription()
 
     def _cleanup_stream(self):
-        """Clean up audio stream and PyAudio."""
+        log.info("cleanup_stream: cleaning up")
         try:
             if self.stream:
                 self.stream.stop_stream()
                 self.stream.close()
-        except:
-            pass
+        except Exception as e:
+            log.error(f"cleanup_stream: stream error: {e}")
         try:
             if self.pa:
                 self.pa.terminate()
-        except:
-            pass
+        except Exception as e:
+            log.error(f"cleanup_stream: pa error: {e}")
         self.stream = None
         self.pa = None
 
-    def _begin_transcription(self):
+    def _stop_recording(self):
+        with self._lock:
+            if not self.recording:
+                log.info("stop_recording: already stopped")
+                return
+            self.recording = False
+            log.info(f"stop_recording: manual stop, frames={len(self.frames)}")
+
+        threading.Thread(target=lambda: play_sound("Pop"), daemon=True).start()
+        self._cleanup_stream()
+        self._do_transcription()
+
+    def _do_transcription(self):
         """Start transcription if we have enough audio."""
-        if len(self.frames) < 10:
+        frame_count = len(self.frames)
+        log.info(f"do_transcription: frame_count={frame_count}")
+
+        if frame_count < 10:
             self.title = "🎤"
-            try:
-                self.menu["⏹ Stop"].title = "⏺ Record"
-            except:
-                pass
+            self._reset_menu_title()
             rumps.notification("Voice", "", "No audio captured")
             return
 
         self.processing = True
         self.title = "⏳"
-        try:
-            self.menu["⏹ Stop"].title = "⏺ Record"
-        except:
-            pass
+        self._reset_menu_title()
         threading.Thread(target=self._transcribe, daemon=True).start()
 
-    def _stop_recording(self):
-        if not self.recording:
-            return
-
-        self.recording = False
-        threading.Thread(target=lambda: play_sound("Pop"), daemon=True).start()
-        self._cleanup_stream()
-        self._begin_transcription()
+    def _reset_menu_title(self):
+        try:
+            for key in ["⏹ Stop", "⏺ Record"]:
+                if key in self.menu:
+                    self.menu[key].title = "⏺ Record"
+                    return
+        except:
+            pass
 
     def _transcribe(self):
+        log.info("transcribe: START")
         try:
             # Save audio to temp WAV
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
@@ -297,22 +328,30 @@ class VoiceApp(rumps.App):
                 wf.writeframes(b''.join(self.frames))
                 wf.close()
 
-            # Transcribe in subprocess (avoids MLX/rumps deadlock)
+            file_size = os.path.getsize(path)
+            log.info(f"transcribe: wav saved, size={file_size} bytes")
+
+            # Transcribe in subprocess
             t0 = time.time()
             text = transcribe_audio(path)
             elapsed = time.time() - t0
             os.unlink(path)
 
+            log.info(f"transcribe: result in {elapsed:.1f}s: {text!r}")
+
             if text:
                 self._save_history(text)
+                log.info("transcribe: saved to history")
 
                 # Copy to clipboard
                 p = subprocess.Popen(['pbcopy'], stdin=subprocess.PIPE)
                 p.communicate(text.encode())
+                log.info("transcribe: copied to clipboard")
 
                 # Paste into active app
                 time.sleep(0.1)
                 pasted = paste_text()
+                log.info(f"transcribe: paste result={pasted}")
 
                 threading.Thread(target=lambda: play_sound("Glass"), daemon=True).start()
 
@@ -321,15 +360,17 @@ class VoiceApp(rumps.App):
                 else:
                     rumps.notification("Copied - Press Cmd+V", f"{elapsed:.1f}s", text[:60])
             else:
+                log.warning("transcribe: empty text")
                 rumps.notification("Voice", "", "No speech detected")
 
         except Exception as e:
+            log.error(f"transcribe: ERROR: {e}", exc_info=True)
             rumps.notification("Error", "", str(e)[:50])
-            print(f"Error: {e}")
         finally:
             self.title = "🎤"
             self.processing = False
             self.frames = []
+            log.info("transcribe: DONE, reset to ready")
 
     def _save_history(self, text):
         conn = sqlite3.connect(DB_PATH)
@@ -360,5 +401,5 @@ class VoiceApp(rumps.App):
             rumps.notification("Voice", "", "History cleared")
 
 if __name__ == "__main__":
-    print("Voice Transcriber starting...")
+    log.info("=== APP LAUNCH ===")
     VoiceApp().run()
