@@ -889,8 +889,16 @@ class VoiceApp(rumps.App):
         except (ValueError, OSError) as e:
             log.warning(f"recording: device {input_device_index} unavailable, falling back to default: {e}")
             stream_kwargs.pop('input_device_index', None)
-            self.stream = self.pa.open(**stream_kwargs)
-            log.info("recording: opened stream with default device (fallback)")
+            try:
+                self.stream = self.pa.open(**stream_kwargs)
+                log.info("recording: opened stream with default device (fallback)")
+            except Exception as e2:
+                log.error(f"recording: default device also failed: {e2}")
+                self.recording = False
+                self.pa.terminate()
+                self.pa = None
+                rumps.notification("Open Whisper", "Microphone Error", "No audio device available. Check System Settings.")
+                return
 
         threading.Thread(target=self._record_loop, daemon=True).start()
 
@@ -1037,14 +1045,14 @@ class VoiceApp(rumps.App):
                 log.info(f"transcribe: PIPELINE TOTAL {total:.2f}s (whisper={whisper_time:.2f}s)")
 
                 if pasted:
-                    rumps.notification("Pasted", f"{total:.1f}s", text[:60])
+                    rumps.notification("Open Whisper", f"{total:.1f}s", text[:60])
                 elif not ax:
                     subprocess.run(['open', 'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility'],
                                   capture_output=True)
                     rumps.notification("Open Whisper", "Accessibility OFF — Grant in Settings",
                                      text[:60])
                 else:
-                    rumps.notification("Copied - Press Cmd+V", f"{total:.1f}s", text[:60])
+                    rumps.notification("Open Whisper", "Copied — Press Cmd+V", text[:60])
             else:
                 log.warning("transcribe: empty text")
                 rumps.notification("Open Whisper", "", "No speech detected")

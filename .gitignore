@@ -5,3 +5,6 @@ dist/
 __pycache__/
 .DS_Store
 *.pyc
+VoiceTranscriber.app/
+VoiceType.app/
+*.app/
