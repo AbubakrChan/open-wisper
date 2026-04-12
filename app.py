@@ -185,6 +185,11 @@ class TranscribeWorker:
         if model:
             self.model = model
         env = {**os.environ, "PYTHONIOENCODING": "utf-8", "LANG": "en_US.UTF-8"}
+        # Strip bundle-injected Python env vars so the worker subprocess
+        # uses its own clean sys.path (not the bundle's redirected paths)
+        for _k in ("PYTHONPATH", "PYTHONHOME", "PYTHONEXECUTABLE",
+                   "RESOURCEPATH", "EXECUTABLEPATH", "ARGVZERO"):
+            env.pop(_k, None)
         self._proc = subprocess.Popen(
             [PYTHON, "-c", WORKER_SCRIPT],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
