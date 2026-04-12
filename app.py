@@ -760,6 +760,19 @@ h1 { font-size: 20px; font-weight: 700; text-align: center; color: #3d3529; marg
 </html>'''
 
 
+NSWindowDelegateProto = objc.protocolNamed('NSWindowDelegate')
+
+class _WizardWindowDelegate(NSObject, protocols=[NSWindowDelegateProto]):
+    def initWithWizard_(self, wizard):
+        self = objc.super(_WizardWindowDelegate, self).init()
+        if self:
+            self._wizard = wizard
+        return self
+
+    def windowWillClose_(self, notification):
+        self._wizard._finish()
+
+
 class SetupWizard:
     """First-run setup wizard: model download + permissions."""
 
@@ -769,6 +782,7 @@ class SetupWizard:
         self._handler = None
         self.on_complete = on_complete
         self._js_queue = None
+        self._delegate = None
 
     def show(self, js_queue):
         self._js_queue = js_queue
@@ -781,6 +795,8 @@ class SetupWizard:
         self.window.setTitle_("Open Wisper — Setup")
         self.window.center()
         self.window.setTitlebarAppearsTransparent_(True)
+        self._delegate = _WizardWindowDelegate.alloc().initWithWizard_(self)
+        self.window.setDelegate_(self._delegate)
         self.window.setMinSize_(NSMakeRect(0, 0, w, h).size)
 
         config = WKWebViewConfiguration.alloc().init()
@@ -851,6 +867,8 @@ class SetupWizard:
 
     def _check_mic(self):
         """Open a brief PyAudio stream to trigger the macOS microphone permission dialog."""
+        pa = None
+        stream = None
         try:
             pa = pyaudio.PyAudio()
             stream = pa.open(
@@ -858,12 +876,21 @@ class SetupWizard:
                 input=True, frames_per_buffer=512
             )
             stream.read(512, exception_on_overflow=False)
-            stream.close()
-            pa.terminate()
             self.eval_js("setPermission('mic', 'ok')")
         except Exception as e:
             log.warning(f"wizard: mic check failed: {e}")
             self.eval_js("setPermission('mic', 'error')")
+        finally:
+            if stream:
+                try:
+                    stream.close()
+                except Exception:
+                    pass
+            if pa:
+                try:
+                    pa.terminate()
+                except Exception:
+                    pass
 
     def _check_ax(self):
         """Open Accessibility System Settings and poll for up to 15s."""
@@ -881,12 +908,17 @@ class SetupWizard:
         self.eval_js("setPermission('ax', 'error')")
 
     def _finish(self):
+        if not self.on_complete:
+            return  # already called
         set_setting("setup_complete", "1")
+        on_complete = self.on_complete
+        self.on_complete = None  # prevent double-call
         if self.window:
             win = self.window
-            self._js_queue.put(lambda: win.close())
-        if self.on_complete:
-            self.on_complete()
+            self.window = None
+            if self._js_queue:
+                self._js_queue.put(lambda: win.close())
+        on_complete()
 
 
 def play_sound(sound_name):
