@@ -458,7 +458,7 @@ class HistoryPanel:
         conn.close()
 
         if not rows:
-            rumps.notification("Voice", "", "No transcriptions to export")
+            rumps.notification("Open Whisper", "", "No transcriptions to export")
             return
 
         if fmt == "md":
@@ -476,11 +476,11 @@ class HistoryPanel:
             content = "\n\n".join(lines)
             ext = "txt"
 
-        out_path = Path.home() / "Desktop" / f"voice-transcriptions.{ext}"
+        out_path = Path.home() / "Desktop" / f"open-whisper-history.{ext}"
         out_path.write_text(content, encoding="utf-8")
         log.info(f"export: saved {len(rows)} entries to {out_path}")
         subprocess.run(["open", "-R", str(out_path)], capture_output=True)
-        rumps.notification("Exported", "", f"{len(rows)} transcriptions saved to Desktop")
+        rumps.notification("Open Whisper", "", f"{len(rows)} transcriptions saved to Desktop")
 
     def _render(self, rows, status, current_model=None):
         if not current_model:
@@ -648,7 +648,7 @@ class VoiceApp(rumps.App):
             None,
             rumps.MenuItem("📋 History", callback=self._show_history),
             None,
-            rumps.MenuItem("⚙️ Permissions", callback=self._open_accessibility),
+            rumps.MenuItem("⚙️ Settings", callback=self._open_accessibility),
             rumps.MenuItem("Quit", callback=rumps.quit_application),
         ]
 
@@ -706,7 +706,7 @@ class VoiceApp(rumps.App):
             subprocess.run(['open', 'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility'],
                           capture_output=True)
             rumps.notification("Open Whisper", "Accessibility Required",
-                             "Toggle ON VoiceTranscriber in the System Settings window that just opened. If already ON, toggle OFF then ON.")
+                             "Toggle ON Open Whisper in the System Settings window that just opened. If already ON, toggle OFF then ON.")
 
         saved_model = get_setting("model", DEFAULT_MODEL)
         t0 = time.time()
@@ -805,10 +805,10 @@ class VoiceApp(rumps.App):
 
     def _toggle(self, _):
         if not self.model_ready:
-            rumps.notification("Voice", "", "Still loading, please wait...")
+            rumps.notification("Open Whisper", "", "Still loading, please wait...")
             return
         if self.processing:
-            rumps.notification("Voice", "", "Still transcribing, please wait...")
+            rumps.notification("Open Whisper", "", "Still transcribing, please wait...")
             return
         if self.recording:
             self._stop_recording()
@@ -897,7 +897,7 @@ class VoiceApp(rumps.App):
         if frame_count < 10:
             self.title = "🎤"
             self._reset_menu_title()
-            rumps.notification("Voice", "", "No audio captured")
+            rumps.notification("Open Whisper", "", "No audio captured")
             return
 
         self.processing = True
@@ -971,14 +971,13 @@ class VoiceApp(rumps.App):
                 elif not ax:
                     subprocess.run(['open', 'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility'],
                                   capture_output=True)
-                    rumps.notification("Copied - Accessibility OFF",
-                                     "Toggle VoiceTranscriber ON in System Settings (if ON, toggle OFF then ON)",
+                    rumps.notification("Open Whisper", "Accessibility OFF — Grant in Settings",
                                      text[:60])
                 else:
                     rumps.notification("Copied - Press Cmd+V", f"{total:.1f}s", text[:60])
             else:
                 log.warning("transcribe: empty text")
-                rumps.notification("Voice", "", "No speech detected")
+                rumps.notification("Open Whisper", "", "No speech detected")
 
         except Exception as e:
             log.error(f"transcribe: ERROR: {e}", exc_info=True)
