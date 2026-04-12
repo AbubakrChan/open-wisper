@@ -602,6 +602,40 @@ class HistoryPanel:
 history_panel = HistoryPanel()
 
 
+def download_model_with_progress(model, on_progress):
+    """
+    Download a HuggingFace model, calling on_progress(pct, downloaded_mb, total_mb)
+    periodically. Uses snapshot_download's tqdm_class hook to intercept file-level
+    progress. Progress is cumulative across all files in the repo.
+    """
+    from huggingface_hub import snapshot_download
+
+    downloaded_bytes = [0]
+    total_bytes = [0]
+
+    class _ProgressTqdm:
+        def __init__(self, *args, **kwargs):
+            self._file_total = kwargs.get('total', 0)
+            total_bytes[0] += self._file_total
+
+        def update(self, n=1):
+            downloaded_bytes[0] += n
+            t = total_bytes[0]
+            d = downloaded_bytes[0]
+            pct = min(99, int(d / t * 100)) if t > 0 else 0
+            on_progress(pct, d / 1024 / 1024, t / 1024 / 1024)
+
+        def __enter__(self): return self
+        def __exit__(self, *args): pass
+        def set_postfix(self, **kwargs): pass
+        def set_description(self, *args, **kwargs): pass
+        def close(self): pass
+
+    snapshot_download(model, tqdm_class=_ProgressTqdm)
+    t = total_bytes[0]
+    on_progress(100, t / 1024 / 1024, t / 1024 / 1024)
+
+
 WIZARD_HTML = '''<!DOCTYPE html>
 <html>
 <head>
@@ -837,9 +871,10 @@ class SetupWizard:
             self._finish()
 
     def _do_download(self):
-        """Stub — wired to real progress in Task 3."""
+        """Download model with real progress updates to the wizard UI."""
         model = get_setting("model") or DEFAULT_MODEL
-        # Check if already cached
+
+        # Check if already cached (snapshot_download raises if not cached + local_files_only)
         try:
             from huggingface_hub import snapshot_download
             snapshot_download(model, local_files_only=True)
@@ -848,20 +883,23 @@ class SetupWizard:
             already_cached = False
 
         if already_cached:
+            log.info("wizard: model already cached, skipping download")
             self.eval_js("setDownloadProgress(100, 0, 0)")
         else:
-            self.eval_js("setDownloadProgress(5, 0, 0)")
-            # Real progress wired in Task 3; for now just download without progress
+            log.info(f"wizard: downloading {model}")
             try:
-                from huggingface_hub import snapshot_download
-                snapshot_download(model)
-                self.eval_js("setDownloadProgress(100, 0, 0)")
+                def on_progress(pct, downloaded_mb, total_mb):
+                    self.eval_js(
+                        f"setDownloadProgress({pct}, {downloaded_mb:.0f}, {total_mb:.0f})"
+                    )
+                download_model_with_progress(model, on_progress)
+                log.info("wizard: download complete")
             except Exception as e:
-                log.error(f"wizard: download failed: {e}")
+                log.error(f"wizard: download error: {e}")
+                self.eval_js("setDownloadProgress(100, 0, 0)")  # advance anyway
 
         time.sleep(0.6)
         self.eval_js("showStep(3)")
-        # Pre-check accessibility
         if check_accessibility():
             self.eval_js("setPermission('ax', 'ok')")
 
