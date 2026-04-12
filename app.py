@@ -592,6 +592,20 @@ def request_accessibility():
     options = {"AXTrustedCheckOptionPrompt": True}
     return AXIsProcessTrustedWithOptions(options)
 
+def get_mic_devices():
+    """Return list of (index_str, name) tuples for available audio input devices."""
+    devices = [("default", "System Default")]
+    try:
+        pa = pyaudio.PyAudio()
+        for i in range(pa.get_device_count()):
+            info = pa.get_device_info_by_index(i)
+            if info.get('maxInputChannels', 0) > 0:
+                devices.append((str(i), info['name']))
+        pa.terminate()
+    except Exception as e:
+        log.warning(f"get_mic_devices: {e}")
+    return devices
+
 def get_setting(key, default=None):
     try:
         conn = sqlite3.connect(DB_PATH)
@@ -825,14 +839,21 @@ class VoiceApp(rumps.App):
 
         threading.Thread(target=lambda: play_sound("Blow"), daemon=True).start()
 
+        mic_setting = get_setting("mic_device_index", "default")
+        input_device_index = None if mic_setting == "default" else int(mic_setting)
+
         self.pa = pyaudio.PyAudio()
-        self.stream = self.pa.open(
+        stream_kwargs = dict(
             format=pyaudio.paInt16,
             channels=1,
             rate=16000,
             input=True,
-            frames_per_buffer=1024
+            frames_per_buffer=1024,
         )
+        if input_device_index is not None:
+            stream_kwargs['input_device_index'] = input_device_index
+        self.stream = self.pa.open(**stream_kwargs)
+        log.info(f"recording: opened stream, mic_index={input_device_index}")
 
         threading.Thread(target=self._record_loop, daemon=True).start()
 
