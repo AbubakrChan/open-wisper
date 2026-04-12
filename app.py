@@ -681,6 +681,7 @@ class VoiceApp(rumps.App):
         self._lock = threading.Lock()
         self._main_thread_queue = queue.Queue()
         self._wizard_done = threading.Event()
+        self._wizard = None
 
         self._setup_db()
         self._build_menu()
@@ -697,7 +698,10 @@ class VoiceApp(rumps.App):
         try:
             while True:
                 cb = self._main_thread_queue.get_nowait()
-                cb()
+                try:
+                    cb()
+                except Exception as e:
+                    log.error(f"main_thread_queue: callback raised: {e}")
         except queue.Empty:
             pass
 
@@ -775,8 +779,8 @@ class VoiceApp(rumps.App):
             if count > 0:
                 set_setting("setup_complete", "returning_user")
                 return False
-        except Exception:
-            pass
+        except Exception as e:
+            log.warning(f"_is_first_run: could not query transcriptions: {e}")
         return True
 
     def _on_wizard_complete(self):
@@ -794,10 +798,13 @@ class VoiceApp(rumps.App):
         # First-run: show wizard and wait until user completes setup
         if self._is_first_run():
             self._wizard_done.clear()
-            self._main_thread_queue.put(lambda: self._show_wizard())
+            self._main_thread_queue.put(self._show_wizard)
             log.info("startup: waiting for setup wizard to complete")
-            self._wizard_done.wait()
-            log.info("startup: wizard complete, continuing startup")
+            completed = self._wizard_done.wait(timeout=600)  # 10-minute max
+            if not completed:
+                log.warning("startup: wizard timed out or was dismissed, continuing anyway")
+            else:
+                log.info("startup: wizard complete, continuing startup")
 
         ax = check_accessibility()
         log.info(f"startup: accessibility={ax}")
