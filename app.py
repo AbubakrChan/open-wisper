@@ -51,17 +51,31 @@ from WebKit import WKWebView, WKWebViewConfiguration, WKUserContentController
 from Foundation import NSObject
 import objc
 
-HOTKEY_KEYCODE = 15  # R key
-HOTKEY_FN_FLAG = 0x800000  # kCGEventFlagMaskSecondaryFn (Fn/Globe key)
+# ---------------------------------------------------------------------------
+# CONFIGURATION — everything you might want to change
+# ---------------------------------------------------------------------------
 
+# Hotkey: Fn+R by default. To use a different key, change HOTKEY_KEYCODE.
+# Key codes: A=0, S=1, D=2, F=3, H=4, G=5, Z=6, X=7, C=8, V=9, R=15, ...
+# Run `python3 -c "from Quartz import *"` and use CGEventGetIntegerValueField
+# on a key press to find other codes.
+HOTKEY_KEYCODE = 15          # R key
+HOTKEY_FN_FLAG = 0x800000    # kCGEventFlagMaskSecondaryFn (Fn/Globe key)
+
+# Default model used on first launch (can be changed in the History panel).
+# Any mlx-community Whisper model on HuggingFace will work.
 DEFAULT_MODEL = "mlx-community/distil-whisper-large-v3"
 
+# Models shown in the Settings panel. Add any mlx-community Whisper model here.
+# Format: ("huggingface-repo-id", "Display name shown in UI")
 MODELS = [
     ("mlx-community/distil-whisper-large-v3",       "Distil Large V3 — fastest, uses ~1.4 GB RAM (default)"),
     ("LibraxisAI/whisper-large-v3-turbo-mlx-q8",    "Turbo Q8 — 15% slower, uses ~880 MB RAM (save ~560 MB)"),
     ("mlx-community/whisper-large-v3-turbo",         "Large V3 Turbo — multilingual, uses ~1.6 GB RAM"),
     ("mlx-community/whisper-tiny",                   "Tiny — ultra fast, uses ~100 MB RAM (lower quality)"),
 ]
+
+# ---------------------------------------------------------------------------
 
 DATA_DIR = Path.home() / ".open-whisper"
 DB_PATH = DATA_DIR / "history.db"
