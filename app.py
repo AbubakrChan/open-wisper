@@ -56,12 +56,33 @@ import objc
 # CONFIGURATION — everything you might want to change
 # ---------------------------------------------------------------------------
 
-# Hotkey: Fn+R by default. To use a different key, change HOTKEY_KEYCODE.
-# Key codes: A=0, S=1, D=2, F=3, H=4, G=5, Z=6, X=7, C=8, V=9, R=15, ...
-# Run `python3 -c "from Quartz import *"` and use CGEventGetIntegerValueField
-# on a key press to find other codes.
-HOTKEY_KEYCODE = 15          # R key
-HOTKEY_FN_FLAG = 0x800000    # kCGEventFlagMaskSecondaryFn (Fn/Globe key)
+# Hotkey defaults — user can change via the Settings panel without editing code.
+DEFAULT_HOTKEY_KEYCODE = 15       # R key
+DEFAULT_HOTKEY_FLAGS   = 0x800000 # kCGEventFlagMaskSecondaryFn (Fn/Globe key)
+
+# macOS virtual key codes for display labels
+_KEY_NAMES = {
+    0:'A', 1:'S', 2:'D', 3:'F', 4:'H', 5:'G', 6:'Z', 7:'X', 8:'C', 9:'V',
+    11:'B', 12:'Q', 13:'W', 14:'E', 15:'R', 16:'Y', 17:'T',
+    18:'1', 19:'2', 20:'3', 21:'4', 22:'6', 23:'5', 24:'=',
+    25:'9', 26:'7', 27:'-', 28:'8', 29:'0',
+    30:']', 31:'O', 32:'U', 33:'[', 34:'I', 35:'P',
+    36:'Return', 37:'L', 38:'J', 39:"'", 40:'K', 41:';',
+    43:',', 44:'/', 45:'N', 46:'M', 47:'.',
+    48:'Tab', 49:'Space', 53:'Esc',
+}
+# Modifier key virtual keycodes (these alone can't be a hotkey trigger)
+_MODIFIER_KEYCODES = {54, 55, 56, 57, 58, 59, 60, 61, 62, 63}
+
+def hotkey_display_name(keycode, flags):
+    """Return a human-readable string like 'Fn+R' or '⌃T' for a hotkey."""
+    mods = ''
+    if flags & 0x800000: mods += 'Fn+'
+    if flags & 0x100000: mods += '⌘'
+    if flags & 0x80000:  mods += '⌥'
+    if flags & 0x40000:  mods += '⌃'
+    if flags & 0x20000:  mods += '⇧'
+    return mods + _KEY_NAMES.get(keycode, f'Key{keycode}')
 
 # Default model used on first launch (can be changed in the History panel).
 # Any mlx-community Whisper model on HuggingFace will work.
@@ -365,6 +386,13 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
       </select>
     </div>
     <div class="setting-row">
+      <span class="setting-label">Hotkey</span>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span id="hotkeyDisplay" style="font-size:12px;color:#5a4e3c;font-family:monospace;background:#e8e0d0;padding:2px 7px;border-radius:4px">CURRENT_HOTKEY</span>
+        <button id="hotkeyBtn" onclick="startHotkeyRecord()" style="font-size:11px;padding:3px 10px;border:1px solid #c4b89a;border-radius:4px;background:#f5f0e8;color:#5a4e3c;cursor:pointer">Record</button>
+      </div>
+    </div>
+    <div class="setting-row">
       <span class="setting-label">At Login</span>
       <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:#5a4e3c">
         <input type="checkbox" id="loginToggle" onchange="toggleLaunchAtLogin(this.checked)" LAUNCH_AT_LOGIN_CHECKED>
@@ -421,6 +449,25 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
     function toggleLaunchAtLogin(enabled) {
       window.webkit.messageHandlers.action.postMessage({type: \'launch_at_login\', enabled: enabled});
     }
+    var _hotkeyPrev = null;
+    function startHotkeyRecord() {
+      _hotkeyPrev = document.getElementById(\'hotkeyDisplay\').textContent;
+      document.getElementById(\'hotkeyDisplay\').textContent = \'Press key…\';
+      document.getElementById(\'hotkeyBtn\').textContent = \'Cancel\';
+      document.getElementById(\'hotkeyBtn\').onclick = cancelHotkeyRecord;
+      window.webkit.messageHandlers.action.postMessage({type: \'hotkey_record_start\'});
+    }
+    function cancelHotkeyRecord() {
+      document.getElementById(\'hotkeyDisplay\').textContent = _hotkeyPrev;
+      document.getElementById(\'hotkeyBtn\').textContent = \'Record\';
+      document.getElementById(\'hotkeyBtn\').onclick = startHotkeyRecord;
+      window.webkit.messageHandlers.action.postMessage({type: \'hotkey_record_cancel\'});
+    }
+    function setHotkey(name) {
+      document.getElementById(\'hotkeyDisplay\').textContent = name;
+      document.getElementById(\'hotkeyBtn\').textContent = \'Record\';
+      document.getElementById(\'hotkeyBtn\').onclick = startHotkeyRecord;
+    }
   </script>
 </body>
 </html>'''
@@ -449,6 +496,13 @@ class HistoryPanel:
         self.webview = None
         self._handler = None
         self.on_model_change = None
+        self.on_hotkey_record = None   # set by VoiceApp
+        self._current_hotkey_name = hotkey_display_name(DEFAULT_HOTKEY_KEYCODE, DEFAULT_HOTKEY_FLAGS)
+
+    def eval_js(self, js):
+        """Evaluate JS in the open panel. Must be called on the main thread."""
+        if self.webview:
+            self.webview.evaluateJavaScript_completionHandler_(js, None)
 
     def show(self, rows, status="ready"):
         html = self._render(rows, status)
@@ -503,6 +557,12 @@ class HistoryPanel:
                 enable_launch_at_login()
             else:
                 disable_launch_at_login()
+        elif body.get("type") == "hotkey_record_start":
+            if self.on_hotkey_record:
+                self.on_hotkey_record(True)
+        elif body.get("type") == "hotkey_record_cancel":
+            if self.on_hotkey_record:
+                self.on_hotkey_record(False)
 
     def _export(self, fmt):
         conn = sqlite3.connect(DB_PATH)
@@ -613,6 +673,7 @@ class HistoryPanel:
                 .replace("APP_OPTIONS", app_options)
                 .replace("MODEL_OPTIONS", model_options)
                 .replace("LAUNCH_AT_LOGIN_CHECKED", "checked" if is_launch_at_login_enabled() else "")
+                .replace("CURRENT_HOTKEY", history_panel._current_hotkey_name)
                 .replace("ENTRIES_HTML", entries_html))
 
 
@@ -1147,10 +1208,16 @@ class VoiceApp(rumps.App):
         self._wizard_done = threading.Event()
         self._wizard = None
 
+        self._hotkey_keycode = int(get_setting("hotkey_keycode") or DEFAULT_HOTKEY_KEYCODE)
+        self._hotkey_flags   = int(get_setting("hotkey_flags")   or DEFAULT_HOTKEY_FLAGS)
+        self._recording_hotkey = False
+
         self._setup_db()
         self._build_menu()
         self._setup_hotkey()
         history_panel.on_model_change = self._change_model
+        history_panel.on_hotkey_record = self._set_hotkey_recording
+        history_panel._current_hotkey_name = hotkey_display_name(self._hotkey_keycode, self._hotkey_flags)
 
         threading.Thread(target=self._startup, daemon=True).start()
         threading.Thread(target=self._keepalive_loop, daemon=True).start()
@@ -1204,9 +1271,16 @@ class VoiceApp(rumps.App):
                 return event
             try:
                 keycode = CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode)
-                flags = CGEventGetFlags(event)
-                if keycode == HOTKEY_KEYCODE and (flags & HOTKEY_FN_FLAG):
-                    log.info("hotkey: Fn+R pressed")
+                flags   = CGEventGetFlags(event)
+                if self._recording_hotkey:
+                    # Ignore bare modifier keypresses; wait for a real key
+                    if keycode not in _MODIFIER_KEYCODES:
+                        useful_flags = flags & (0x800000 | 0x100000 | 0x80000 | 0x40000 | 0x20000)
+                        if useful_flags:
+                            self._apply_new_hotkey(keycode, useful_flags)
+                    return None  # suppress all keypresses while recording
+                if keycode == self._hotkey_keycode and (flags & self._hotkey_flags):
+                    log.info(f"hotkey: {hotkey_display_name(self._hotkey_keycode, self._hotkey_flags)} pressed")
                     self._toggle(None)
                     return None  # Suppress the keystroke
             except Exception as e:
@@ -1227,9 +1301,29 @@ class VoiceApp(rumps.App):
             CGEventTapEnable(tap, True)
             self._event_tap = tap  # prevent GC
             self._tap_source = source
-            log.info("hotkey: Fn+R registered")
+            log.info(f"hotkey: {hotkey_display_name(self._hotkey_keycode, self._hotkey_flags)} registered")
         else:
             log.warning("hotkey: failed to create event tap (Accessibility permission needed)")
+
+    def _set_hotkey_recording(self, recording: bool):
+        """Called by HistoryPanel when user clicks Record / Cancel."""
+        self._recording_hotkey = recording
+        log.info(f"hotkey: recording_mode={'on' if recording else 'off'}")
+
+    def _apply_new_hotkey(self, keycode: int, flags: int):
+        """Save a newly recorded hotkey and update the Settings panel display."""
+        self._recording_hotkey = False
+        self._hotkey_keycode = keycode
+        self._hotkey_flags   = flags
+        set_setting("hotkey_keycode", str(keycode))
+        set_setting("hotkey_flags",   str(flags))
+        name = hotkey_display_name(keycode, flags)
+        history_panel._current_hotkey_name = name
+        log.info(f"hotkey: saved new hotkey: {name}")
+        # Push update to open Settings panel (runs on main thread via queue)
+        self._main_thread_queue.put(
+            lambda: history_panel.eval_js(f"setHotkey({name!r})") if history_panel.webview else None
+        )
 
     def _is_first_run(self):
         """Return True if this is a fresh install (no prior setup)."""
