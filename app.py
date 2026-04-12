@@ -233,27 +233,48 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
     font-family: -apple-system, BlinkMacSystemFont, sans-serif;
     background: linear-gradient(135deg, #faf7f2 0%, #f5f0e8 100%);
     color: #3d3529;
-    padding: 24px 24px 16px;
+    padding: 20px 20px 12px;
     -webkit-user-select: none;
   }
-  .header { text-align: center; margin-bottom: 20px; }
-  .status-icon { font-size: 38px; margin-bottom: 4px; }
-  .status-text { font-size: 16px; font-weight: 600; color: #5a4e3c; }
-  .status-hint { font-size: 11px; color: #9a8e7c; margin-top: 3px; }
-  .toolbar {
-    display: flex; justify-content: space-between; align-items: center;
-    margin-bottom: 12px; gap: 8px;
+  .header { text-align: center; margin-bottom: 16px; }
+  .status-icon { font-size: 34px; margin-bottom: 3px; }
+  .status-text { font-size: 15px; font-weight: 600; color: #5a4e3c; }
+  .status-hint { font-size: 11px; color: #9a8e7c; margin-top: 2px; }
+  .panel-section {
+    background: rgba(255,255,255,0.55);
+    border-radius: 12px;
+    border: 1px solid rgba(0,0,0,0.06);
+    padding: 12px 14px;
+    margin-bottom: 10px;
   }
-  .toolbar-left { display: flex; align-items: center; gap: 8px; }
-  .toolbar-right { display: flex; align-items: center; gap: 6px; }
+  .section-title {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.9px; color: #b0a48f; margin-bottom: 10px;
+    display: block;
+  }
+  .setting-row {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 8px;
+  }
+  .setting-row:last-child { margin-bottom: 0; }
+  .setting-label {
+    font-size: 12px; font-weight: 500; color: #7a6e5c;
+    width: 82px; flex-shrink: 0;
+  }
+  .setting-select {
+    font-size: 12px; padding: 4px 8px; border-radius: 6px;
+    border: 1px solid rgba(0,0,0,0.1); background: rgba(255,255,255,0.8);
+    color: #5a4e3c; font-family: inherit; cursor: pointer; flex: 1;
+  }
+  .history-toolbar {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 10px; gap: 8px;
+  }
+  .history-toolbar-left { display: flex; align-items: center; gap: 8px; }
+  .history-toolbar-right { display: flex; align-items: center; gap: 6px; }
   .filter-select {
     font-size: 12px; padding: 4px 8px; border-radius: 6px;
     border: 1px solid rgba(0,0,0,0.1); background: rgba(255,255,255,0.7);
     color: #5a4e3c; font-family: inherit; cursor: pointer;
-  }
-  .section-title {
-    font-size: 11px; font-weight: 700; text-transform: uppercase;
-    letter-spacing: 0.8px; color: #b0a48f;
   }
   .export-btn {
     background: none; border: 1px solid rgba(0,0,0,0.1); border-radius: 6px;
@@ -262,21 +283,21 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
   }
   .export-btn:hover { background: rgba(0,0,0,0.05); color: #5a4e3c; }
   .date-group {
-    font-size: 12px; font-weight: 600; color: #8a7e6c;
-    margin-top: 16px; margin-bottom: 6px; padding-left: 2px;
+    font-size: 11px; font-weight: 600; color: #8a7e6c;
+    margin-top: 12px; margin-bottom: 5px; padding-left: 2px;
   }
   .date-group:first-child { margin-top: 0; }
-  .entries { display: flex; flex-direction: column; gap: 8px; }
+  .entries { display: flex; flex-direction: column; gap: 6px; }
   .entry {
-    background: rgba(255,255,255,0.75); border-radius: 10px;
-    padding: 12px 14px; transition: background 0.15s;
+    background: rgba(255,255,255,0.75); border-radius: 8px;
+    padding: 10px 12px; transition: background 0.15s;
     border: 1px solid rgba(0,0,0,0.04);
   }
   .entry:hover { background: rgba(255,255,255,0.95); }
   .entry.hidden { display: none; }
   .entry-header {
     display: flex; justify-content: space-between; align-items: center;
-    margin-bottom: 4px;
+    margin-bottom: 3px;
   }
   .entry-meta {
     font-size: 11px; color: #b0a48f; font-weight: 500;
@@ -287,34 +308,20 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
     border-radius: 4px; font-size: 10px;
   }
   .copy-btn {
-    background: none; border: none; padding: 4px; cursor: pointer;
+    background: none; border: none; padding: 3px; cursor: pointer;
     color: #b0a48f; transition: color 0.15s; line-height: 1;
   }
   .copy-btn:hover { color: #5a4e3c; }
+  .copy-btn .check { display: none; color: #5a9a5a; font-size: 13px; }
   .copy-btn.copied svg { display: none; }
-  .copy-btn .check { display: none; color: #5a9a5a; font-size: 14px; }
   .copy-btn.copied .check { display: inline; }
   .entry-text {
-    font-size: 14px; line-height: 1.45; color: #3d3529;
+    font-size: 13px; line-height: 1.45; color: #3d3529;
     -webkit-user-select: text;
   }
   .empty {
-    text-align: center; padding: 48px 20px; color: #b0a48f;
-    font-size: 14px; line-height: 1.6;
-  }
-  .model-bar {
-    margin-top: 16px; padding-top: 12px;
-    border-top: 1px solid rgba(0,0,0,0.06);
-    display: flex; align-items: center; gap: 8px;
-  }
-  .model-label {
-    font-size: 11px; font-weight: 600; color: #b0a48f;
-    text-transform: uppercase; letter-spacing: 0.6px; white-space: nowrap;
-  }
-  .model-select {
-    font-size: 12px; padding: 4px 8px; border-radius: 6px;
-    border: 1px solid rgba(0,0,0,0.1); background: rgba(255,255,255,0.7);
-    color: #5a4e3c; font-family: inherit; cursor: pointer; flex: 1;
+    text-align: center; padding: 32px 20px; color: #b0a48f;
+    font-size: 13px; line-height: 1.6;
   }
   .recording .status-icon { animation: pulse 1.2s ease-in-out infinite; }
   @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.5; } }
@@ -326,55 +333,67 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
     <div class="status-text">STATUS_TEXT</div>
     <div class="status-hint">Fn+R to record</div>
   </div>
-  <div class="toolbar">
-    <div class="toolbar-left">
-      <span class="section-title">Transcriptions</span>
-      <select class="filter-select" id="appFilter" onchange="filterByApp(this.value)">
-        <option value="all">All Apps</option>
-        APP_OPTIONS
+
+  <div class="panel-section">
+    <span class="section-title">Settings</span>
+    <div class="setting-row">
+      <span class="setting-label">Microphone</span>
+      <select class="setting-select" id="micSelect" onchange="changeMic(this.value)">
+        MIC_OPTIONS
       </select>
     </div>
-    <div class="toolbar-right">
-      <button class="export-btn" onclick="doExport('md')">Export .md</button>
-      <button class="export-btn" onclick="doExport('txt')">Export .txt</button>
+    <div class="setting-row">
+      <span class="setting-label">Model</span>
+      <select class="setting-select" id="modelSelect" onchange="changeModel(this.value)">
+        MODEL_OPTIONS
+      </select>
     </div>
   </div>
-  <div class="entries" id="entries">
-    ENTRIES_HTML
-  </div>
-  <div class="model-bar">
-    <span class="model-label">Model</span>
-    <select class="model-select" id="modelSelect" onchange="changeModel(this.value)">
-      MODEL_OPTIONS
-    </select>
-  </div>
-  <script>
-    var COPY_SVG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>';
 
+  <div class="panel-section">
+    <div class="history-toolbar">
+      <div class="history-toolbar-left">
+        <span class="section-title" style="margin-bottom:0">History</span>
+        <select class="filter-select" id="appFilter" onchange="filterByApp(this.value)">
+          <option value="all">All Apps</option>
+          APP_OPTIONS
+        </select>
+      </div>
+      <div class="history-toolbar-right">
+        <button class="export-btn" onclick="doExport(\'md\')">Export .md</button>
+        <button class="export-btn" onclick="doExport(\'txt\')">Export .txt</button>
+      </div>
+    </div>
+    <div class="entries" id="entries">
+      ENTRIES_HTML
+    </div>
+  </div>
+
+  <script>
     function copyText(btn, id) {
       var el = document.getElementById(id);
-      var ta = document.createElement('textarea');
+      var ta = document.createElement(\'textarea\');
       ta.value = el.innerText;
       document.body.appendChild(ta); ta.select();
-      document.execCommand('copy');
+      document.execCommand(\'copy\');
       document.body.removeChild(ta);
-      btn.classList.add('copied');
-      setTimeout(function() { btn.classList.remove('copied'); }, 1200);
+      btn.classList.add(\'copied\');
+      setTimeout(function() { btn.classList.remove(\'copied\'); }, 1200);
     }
-
     function filterByApp(app) {
-      document.querySelectorAll('.entry').forEach(function(el) {
-        if (app === 'all') { el.classList.remove('hidden'); }
-        else { el.classList.toggle('hidden', el.dataset.app !== app); }
+      document.querySelectorAll(\'.entry\').forEach(function(el) {
+        if (app === \'all\') { el.classList.remove(\'hidden\'); }
+        else { el.classList.toggle(\'hidden\', el.dataset.app !== app); }
       });
     }
-
     function doExport(fmt) {
-      window.webkit.messageHandlers.action.postMessage({type: 'export', format: fmt});
+      window.webkit.messageHandlers.action.postMessage({type: \'export\', format: fmt});
     }
-
     function changeModel(model) {
-      window.webkit.messageHandlers.action.postMessage({type: 'model', model: model});
+      window.webkit.messageHandlers.action.postMessage({type: \'model\', model: model});
+    }
+    function changeMic(index) {
+      window.webkit.messageHandlers.action.postMessage({type: \'mic\', index: index});
     }
   </script>
 </body>
@@ -414,7 +433,7 @@ class HistoryPanel:
             NSApp.activateIgnoringOtherApps_(True)
             return
 
-        w, h = 520, 620
+        w, h = 520, 680
         style = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskResizable
         self.window = NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(
             NSMakeRect(0, 0, w, h), style, NSBackingStoreBuffered, False
@@ -449,6 +468,10 @@ class HistoryPanel:
         elif body.get("type") == "model":
             if self.on_model_change:
                 self.on_model_change(body.get("model"))
+        elif body.get("type") == "mic":
+            index = body.get("index", "default")
+            set_setting("mic_device_index", str(index))
+            log.info(f"mic: selection changed to index={index}")
 
     def _export(self, fmt):
         conn = sqlite3.connect(DB_PATH)
@@ -492,13 +515,20 @@ class HistoryPanel:
         else:
             icon, text, css_class = "🎤", "Ready", ""
 
+        # Mic options
+        saved_mic = get_setting("mic_device_index", "default")
+        mic_options = "\n".join(
+            f'<option value="{idx}" {"selected" if idx == saved_mic else ""}>{name}</option>'
+            for idx, name in get_mic_devices()
+        )
+
         # Model options
         model_options = "\n".join(
             f'<option value="{repo}" {"selected" if repo == current_model else ""}>{name}</option>'
             for repo, name in MODELS
         )
 
-        # Collect unique app names for filter
+        # App filter options
         apps = sorted(set(row[2] for row in rows if len(row) > 2 and row[2]))
         app_options = "\n".join(f'<option value="{a}">{a}</option>' for a in apps)
 
@@ -533,7 +563,7 @@ class HistoryPanel:
                     f'<div class="entry-header">'
                     f'<div class="entry-meta"><span>{t}</span>{app_tag}</div>'
                     f'<button class="copy-btn" onclick="copyText(this,\'t{i}\')">'
-                    f'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>'
+                    f'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>'
                     f'<span class="check">✓</span>'
                     f'</button>'
                     f'</div>'
@@ -548,6 +578,7 @@ class HistoryPanel:
                 .replace("STATUS_ICON", icon)
                 .replace("STATUS_TEXT", text)
                 .replace("STATUS_CLASS", css_class)
+                .replace("MIC_OPTIONS", mic_options)
                 .replace("APP_OPTIONS", app_options)
                 .replace("MODEL_OPTIONS", model_options)
                 .replace("ENTRIES_HTML", entries_html))
