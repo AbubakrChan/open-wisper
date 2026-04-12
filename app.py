@@ -81,6 +81,7 @@ MODELS = [
 DATA_DIR = Path.home() / ".open-wisper"
 DB_PATH = DATA_DIR / "history.db"
 LOG_PATH = DATA_DIR / "app.log"
+LAUNCH_AGENT_PLIST = Path.home() / "Library" / "LaunchAgents" / "com.local.openwisper.plist"
 _OLD_DATA_DIR = Path.home() / ".voice-transcriber"
 
 # Logging to file (stdout is swallowed by .app bundle)
@@ -363,6 +364,13 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
         MODEL_OPTIONS
       </select>
     </div>
+    <div class="setting-row">
+      <span class="setting-label">At Login</span>
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:#5a4e3c">
+        <input type="checkbox" id="loginToggle" onchange="toggleLaunchAtLogin(this.checked)" LAUNCH_AT_LOGIN_CHECKED>
+        Start automatically
+      </label>
+    </div>
   </div>
 
   <div class="panel-section">
@@ -409,6 +417,9 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
     }
     function changeMic(index) {
       window.webkit.messageHandlers.action.postMessage({type: \'mic\', index: index});
+    }
+    function toggleLaunchAtLogin(enabled) {
+      window.webkit.messageHandlers.action.postMessage({type: \'launch_at_login\', enabled: enabled});
     }
   </script>
 </body>
@@ -487,6 +498,11 @@ class HistoryPanel:
             index = body.get("index", "default")
             set_setting("mic_device_index", str(index))
             log.info(f"mic: selection changed to index={index}")
+        elif body.get("type") == "launch_at_login":
+            if body.get("enabled"):
+                enable_launch_at_login()
+            else:
+                disable_launch_at_login()
 
     def _export(self, fmt):
         conn = sqlite3.connect(DB_PATH)
@@ -596,6 +612,7 @@ class HistoryPanel:
                 .replace("MIC_OPTIONS", mic_options)
                 .replace("APP_OPTIONS", app_options)
                 .replace("MODEL_OPTIONS", model_options)
+                .replace("LAUNCH_AT_LOGIN_CHECKED", "checked" if is_launch_at_login_enabled() else "")
                 .replace("ENTRIES_HTML", entries_html))
 
 
@@ -968,6 +985,7 @@ class SetupWizard:
     def _finish(self):
         if not self.on_complete:
             return  # already called
+        enable_launch_at_login()
         set_setting("setup_complete", "1")
         on_complete = self.on_complete
         self.on_complete = None  # prevent double-call
@@ -1043,6 +1061,59 @@ def set_setting(key, value):
     conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value))
     conn.commit()
     conn.close()
+
+
+def enable_launch_at_login():
+    """Write LaunchAgent plist so app starts at login."""
+    try:
+        app_path = str(Path(__file__).resolve())
+        work_dir = str(Path(__file__).parent.resolve())
+        python_path = sys.executable
+        plist = f"""<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.local.openwisper</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>{python_path}</string>
+        <string>{app_path}</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <false/>
+    <key>WorkingDirectory</key>
+    <string>{work_dir}</string>
+    <key>StandardOutPath</key>
+    <string>{str(LOG_PATH)}</string>
+    <key>StandardErrorPath</key>
+    <string>{str(DATA_DIR / "launch-error.log")}</string>
+</dict>
+</plist>"""
+        LAUNCH_AGENT_PLIST.write_text(plist)
+        subprocess.run(['launchctl', 'load', str(LAUNCH_AGENT_PLIST)], capture_output=True)
+        set_setting("launch_at_login", "1")
+        log.info(f"launch_at_login: enabled, python={python_path}, app={app_path}")
+    except Exception as e:
+        log.error(f"launch_at_login: enable failed: {e}")
+
+
+def disable_launch_at_login():
+    """Remove LaunchAgent plist."""
+    try:
+        if LAUNCH_AGENT_PLIST.exists():
+            subprocess.run(['launchctl', 'unload', str(LAUNCH_AGENT_PLIST)], capture_output=True)
+            LAUNCH_AGENT_PLIST.unlink()
+        set_setting("launch_at_login", "0")
+        log.info("launch_at_login: disabled")
+    except Exception as e:
+        log.error(f"launch_at_login: disable failed: {e}")
+
+
+def is_launch_at_login_enabled():
+    return get_setting("launch_at_login", "0") == "1"
 
 
 class VoiceApp(rumps.App):
