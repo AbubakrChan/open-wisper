@@ -12,6 +12,7 @@ sys.path.insert(0, site.getusersitepackages())
 os.environ["PATH"] = "/opt/homebrew/bin:" + os.environ.get("PATH", "")
 
 import wave
+import queue
 import tempfile
 import subprocess
 import threading
@@ -678,6 +679,8 @@ class VoiceApp(rumps.App):
         self.pa = None
         self.model_ready = False
         self._lock = threading.Lock()
+        self._main_thread_queue = queue.Queue()
+        self._wizard_done = threading.Event()
 
         self._setup_db()
         self._build_menu()
@@ -689,7 +692,15 @@ class VoiceApp(rumps.App):
 
     @rumps.timer(0.2)
     def _sync_icon(self, _):
-        """Sync menu bar icon to recording state on the main thread."""
+        """Sync menu bar icon and drain main-thread dispatch queue."""
+        # Drain scheduled callbacks (e.g., wizard JS eval, wizard show)
+        try:
+            while True:
+                cb = self._main_thread_queue.get_nowait()
+                cb()
+        except queue.Empty:
+            pass
+
         if self.recording:
             expected = "🔴"
         elif self.processing:
@@ -752,9 +763,41 @@ class VoiceApp(rumps.App):
         else:
             log.warning("hotkey: failed to create event tap (Accessibility permission needed)")
 
+    def _is_first_run(self):
+        """Return True if this is a fresh install (no prior setup)."""
+        if get_setting("setup_complete") is not None:
+            return False
+        # Returning users who updated before wizard existed — skip wizard
+        try:
+            conn = sqlite3.connect(DB_PATH)
+            count = conn.execute("SELECT COUNT(*) FROM transcriptions").fetchone()[0]
+            conn.close()
+            if count > 0:
+                set_setting("setup_complete", "returning_user")
+                return False
+        except Exception:
+            pass
+        return True
+
+    def _on_wizard_complete(self):
+        """Called by wizard when user clicks 'Start Using'."""
+        self._wizard_done.set()
+
+    def _show_wizard(self):
+        self._wizard = SetupWizard(on_complete=self._on_wizard_complete)
+        self._wizard.show(self._main_thread_queue)
+
     def _startup(self):
         self.title = "⏳"
         log.info(f"startup: begin, executable={sys.executable}, pid={os.getpid()}")
+
+        # First-run: show wizard and wait until user completes setup
+        if self._is_first_run():
+            self._wizard_done.clear()
+            self._main_thread_queue.put(lambda: self._show_wizard())
+            log.info("startup: waiting for setup wizard to complete")
+            self._wizard_done.wait()
+            log.info("startup: wizard complete, continuing startup")
 
         ax = check_accessibility()
         log.info(f"startup: accessibility={ax}")
