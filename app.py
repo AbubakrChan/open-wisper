@@ -197,6 +197,9 @@ class TranscribeWorker:
         self._proc.stdin.write(self.model + "\n")
         self._proc.stdin.flush()
         line = self._proc.stdout.readline()
+        if not line:
+            rc = self._proc.poll()
+            raise RuntimeError(f"worker subprocess exited early (rc={rc}) — check that mlx is installed")
         info = json.loads(line)
         log.info(f"worker: started, model={self.model}, import_time={info.get('import_time')}s")
         # Warm up: transcribe a tiny silent WAV to page model weights into memory
@@ -1384,9 +1387,27 @@ class VoiceApp(rumps.App):
             ))
 
         saved_model = get_setting("model", DEFAULT_MODEL)
-        t0 = time.time()
-        worker.start(saved_model)
-        log.info(f"startup: worker started in {time.time()-t0:.2f}s, model={saved_model}")
+        log.info(f"startup: starting worker, model={saved_model}")
+        try:
+            t0 = time.time()
+            worker.start(saved_model)
+            log.info(f"startup: worker started in {time.time()-t0:.2f}s, model={saved_model}")
+        except Exception as e:
+            log.error(f"startup: worker.start failed: {e}", exc_info=True)
+            # Try once more with the default model
+            if saved_model != DEFAULT_MODEL:
+                log.info(f"startup: retrying with default model {DEFAULT_MODEL}")
+                try:
+                    worker.start(DEFAULT_MODEL)
+                    set_setting("model", DEFAULT_MODEL)
+                    log.info("startup: worker started with default model")
+                except Exception as e2:
+                    log.error(f"startup: retry also failed: {e2}", exc_info=True)
+                    self._notify("Open Wisper", "Load Error", f"Could not load model: {e2}")
+                    return
+            else:
+                self._notify("Open Wisper", "Load Error", f"Could not load model: {e}")
+                return
 
         self.title = "🎤"
         self.model_ready = True
