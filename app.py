@@ -946,21 +946,33 @@ class VoiceApp(rumps.App):
                 self._save_history(text, app_name)
                 log.info(f"transcribe: saved to history, app={app_name}")
 
-                # Copy to clipboard
-                t0 = time.time()
-                p = subprocess.Popen(['pbcopy'], stdin=subprocess.PIPE)
-                p.communicate(text.encode())
-                log.info(f"transcribe: clipboard copy took {time.time()-t0:.3f}s")
-
-                # Paste into active app (requires Accessibility)
                 ax = check_accessibility()
                 log.info(f"transcribe: accessibility={ax} before paste")
                 pasted = False
+
                 if ax:
+                    # Save old clipboard, paste transcription, restore clipboard after 300ms
+                    t0 = time.time()
+                    old_clip = subprocess.run(['pbpaste'], capture_output=True, text=True).stdout
+                    p = subprocess.Popen(['pbcopy'], stdin=subprocess.PIPE)
+                    p.communicate(text.encode())
+                    log.info(f"transcribe: clipboard set in {time.time()-t0:.3f}s")
                     time.sleep(0.1)
                     t0 = time.time()
                     pasted = paste_text()
                     log.info(f"transcribe: paste took {time.time()-t0:.3f}s, result={pasted}")
+                    if pasted:
+                        def _restore(old=old_clip):
+                            time.sleep(0.3)
+                            p2 = subprocess.Popen(['pbcopy'], stdin=subprocess.PIPE)
+                            p2.communicate(old.encode())
+                            log.info("transcribe: clipboard restored")
+                        threading.Thread(target=_restore, daemon=True).start()
+                else:
+                    # No accessibility — copy to clipboard so user can Cmd+V manually
+                    p = subprocess.Popen(['pbcopy'], stdin=subprocess.PIPE)
+                    p.communicate(text.encode())
+                    log.info("transcribe: no accessibility, copied to clipboard")
 
                 threading.Thread(target=lambda: play_sound("Glass"), daemon=True).start()
                 total = time.time() - pipeline_start
