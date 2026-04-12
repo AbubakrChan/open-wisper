@@ -1305,6 +1305,11 @@ class VoiceApp(rumps.App):
         else:
             log.warning("hotkey: failed to create event tap (Accessibility permission needed)")
 
+    def _notify(self, title, subtitle="", message=""):
+        """Send a rumps notification safely from any thread."""
+        t, s, m = title, subtitle, message
+        self._main_thread_queue.put(lambda: rumps.notification(t, s, m))
+
     def _set_hotkey_recording(self, recording: bool):
         """Called by HistoryPanel when user clicks Record / Cancel."""
         self._recording_hotkey = recording
@@ -1372,8 +1377,11 @@ class VoiceApp(rumps.App):
             # Open System Settings directly to the right page
             subprocess.run(['open', 'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility'],
                           capture_output=True)
-            rumps.notification("Open Wisper", "Accessibility Required",
-                             "Toggle ON Open Wisper in the System Settings window that just opened. If already ON, toggle OFF then ON.")
+            # rumps.notification must run on the main thread
+            self._main_thread_queue.put(lambda: rumps.notification(
+                "Open Wisper", "Accessibility Required",
+                "Toggle ON Open Wisper in System Settings → Privacy & Security → Accessibility."
+            ))
 
         saved_model = get_setting("model", DEFAULT_MODEL)
         t0 = time.time()
@@ -1448,12 +1456,12 @@ class VoiceApp(rumps.App):
                 worker.restart(model)
                 self.model_ready = True
                 self.title = "🎤"
-                rumps.notification("Open Wisper", "", f"{model_name} ready")
+                self._notify("Open Wisper", "", f"{model_name} ready")
             except Exception as e:
                 log.error(f"change_model: error: {e}")
                 self.model_ready = True
                 self.title = "🎤"
-                rumps.notification("Open Wisper", "Error", f"Failed to load model: {e}")
+                self._notify("Open Wisper", "Error", f"Failed to load model: {e}")
         threading.Thread(target=do_switch, daemon=True).start()
 
     def _ensure_model_downloaded(self, model):
@@ -1472,10 +1480,10 @@ class VoiceApp(rumps.App):
 
     def _toggle(self, _):
         if not self.model_ready:
-            rumps.notification("Open Wisper", "", "Still loading, please wait...")
+            self._notify("Open Wisper", "", "Still loading, please wait...")
             return
         if self.processing:
-            rumps.notification("Open Wisper", "", "Still transcribing, please wait...")
+            self._notify("Open Wisper", "", "Still transcribing, please wait...")
             return
         if self.recording:
             self._stop_recording()
@@ -1519,7 +1527,7 @@ class VoiceApp(rumps.App):
                 self.recording = False
                 self.pa.terminate()
                 self.pa = None
-                rumps.notification("Open Wisper", "Microphone Error", "No audio device available. Check System Settings.")
+                self._notify("Open Wisper", "Microphone Error", "No audio device available. Check System Settings.")
                 return
 
         threading.Thread(target=self._record_loop, daemon=True).start()
@@ -1585,7 +1593,7 @@ class VoiceApp(rumps.App):
         if frame_count < 10:
             self.title = "🎤"
             self._reset_menu_title()
-            rumps.notification("Open Wisper", "", "No audio captured")
+            self._notify("Open Wisper", "", "No audio captured")
             return
 
         self.processing = True
@@ -1667,21 +1675,20 @@ class VoiceApp(rumps.App):
                 log.info(f"transcribe: PIPELINE TOTAL {total:.2f}s (whisper={whisper_time:.2f}s)")
 
                 if pasted:
-                    rumps.notification("Open Wisper", f"{total:.1f}s", text[:60])
+                    self._notify("Open Wisper", f"{total:.1f}s", text[:60])
                 elif not ax:
                     subprocess.run(['open', 'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility'],
                                   capture_output=True)
-                    rumps.notification("Open Wisper", "Accessibility OFF — Grant in Settings",
-                                     text[:60])
+                    self._notify("Open Wisper", "Accessibility OFF — Grant in Settings", text[:60])
                 else:
-                    rumps.notification("Open Wisper", "Copied — Press Cmd+V", text[:60])
+                    self._notify("Open Wisper", "Copied — Press Cmd+V", text[:60])
             else:
                 log.warning("transcribe: empty text")
-                rumps.notification("Open Wisper", "", "No speech detected")
+                self._notify("Open Wisper", "", "No speech detected")
 
         except Exception as e:
             log.error(f"transcribe: ERROR: {e}", exc_info=True)
-            rumps.notification("Error", "", str(e)[:50])
+            self._notify("Error", "", str(e)[:50])
         finally:
             self.title = "🎤"
             self.processing = False
