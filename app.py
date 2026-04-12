@@ -852,8 +852,14 @@ class VoiceApp(rumps.App):
         )
         if input_device_index is not None:
             stream_kwargs['input_device_index'] = input_device_index
-        self.stream = self.pa.open(**stream_kwargs)
-        log.info(f"recording: opened stream, mic_index={input_device_index}")
+        try:
+            self.stream = self.pa.open(**stream_kwargs)
+            log.info(f"recording: opened stream, mic_index={input_device_index}")
+        except (ValueError, OSError) as e:
+            log.warning(f"recording: device {input_device_index} unavailable, falling back to default: {e}")
+            stream_kwargs.pop('input_device_index', None)
+            self.stream = self.pa.open(**stream_kwargs)
+            log.info("recording: opened stream with default device (fallback)")
 
         threading.Thread(target=self._record_loop, daemon=True).start()
 
