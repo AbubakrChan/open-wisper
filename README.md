@@ -1,8 +1,8 @@
-# Open Whisper
+# Open Wisper
 
 > Local voice transcription for macOS. Press a key, speak, done.
 
-Built because Wispr Flow was too slow — sometimes taking 5–10 seconds to fill in a transcription, occasionally failing silently. We live in an age where Apple Silicon can run a state-of-the-art speech model in under a second, entirely on your device. Open Whisper is that: a small, fast, transparent app that does one thing well.
+Built because Wispr Flow was too slow — sometimes taking 5–10 seconds to fill in a transcription, occasionally failing silently. We live in an age where Apple Silicon can run a state-of-the-art speech model in under a second, entirely on your device. Open Wisper is that: a small, fast, transparent app that does one thing well.
 
 **No subscription. No cloud. No clipboard pollution. Just your voice, pasted.**
 
@@ -49,7 +49,7 @@ If you set `language="en"`, Whisper skips detection entirely and goes straight t
 
 Most tools load the AI model fresh on every transcription. That's 3–5 seconds of overhead every time.
 
-Open Whisper loads the model once at startup (in a persistent background subprocess) and keeps it there. Each transcription goes directly to an already-loaded model. The loading time you pay once; subsequent transcriptions start immediately.
+Open Wisper loads the model once at startup (in a persistent background subprocess) and keeps it there. Each transcription goes directly to an already-loaded model. The loading time you pay once; subsequent transcriptions start immediately.
 
 **3. Warmup run**
 
@@ -127,8 +127,8 @@ Extremely small model. Noticeably more errors, especially on proper nouns, techn
 
 ```bash
 # 1. Clone
-git clone https://github.com/YOUR_USERNAME/open-whisper.git
-cd open-whisper
+git clone https://github.com/YOUR_USERNAME/open-wisper.git
+cd open-wisper
 
 # 2. Install dependencies
 make install
@@ -149,7 +149,7 @@ Two macOS permissions are required:
 
 **Accessibility** — required for auto-paste (so the app can simulate Cmd+V in other apps):
 1. Open **System Settings → Privacy & Security → Accessibility**
-2. Click **+** → add `Python` (or `OpenWhisper.app` if using the built bundle)
+2. Click **+** → add `Python` (or `OpenWisper.app` if using the built bundle)
 3. Toggle it **ON**
 
 Without Accessibility permission the app still works — transcriptions are saved to history and copied to your clipboard. You just press Cmd+V manually.
@@ -194,7 +194,7 @@ To switch to multilingual or change the target language, find `language="en"` in
 
 ## Data
 
-All data lives in `~/.open-whisper/`:
+All data lives in `~/.open-wisper/`:
 
 | File | Contents |
 |------|----------|
@@ -203,7 +203,7 @@ All data lives in `~/.open-whisper/`:
 
 Model weights are cached in `~/.cache/huggingface/` by HuggingFace Hub.
 
-To fully reset: `rm -rf ~/.open-whisper/`
+To fully reset: `rm -rf ~/.open-wisper/`
 
 ---
 
@@ -213,8 +213,8 @@ If you want a standalone `.app`:
 
 ```bash
 make install-bundle   # installs py2app (one-time)
-make rebuild          # builds dist/OpenWhisper.app
-open dist/OpenWhisper.app
+make rebuild          # builds dist/OpenWisper.app
+open dist/OpenWisper.app
 ```
 
 After rebuilding you'll need to re-grant Accessibility permission since the bundle identity changes.
@@ -236,7 +236,7 @@ After rebuilding you'll need to re-grant Accessibility permission since the bund
 → Try a larger model. If you're using Tiny, switch to Distil Large V3.
 
 **Model download fails or is slow**
-→ Check `~/.open-whisper/app.log`. Run `python3 app.py` in Terminal to see errors live.
+→ Check `~/.open-wisper/app.log`. Run `python3 app.py` in Terminal to see errors live.
 
 **Want a different hotkey**
 → Edit `HOTKEY_KEYCODE` at the top of `app.py`

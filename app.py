@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Open Whisper - Click menubar icon to record
+Open Wisper - Click menubar icon to record
 Pastes transcribed text into the active app
 """
 
@@ -77,7 +77,7 @@ MODELS = [
 
 # ---------------------------------------------------------------------------
 
-DATA_DIR = Path.home() / ".open-whisper"
+DATA_DIR = Path.home() / ".open-wisper"
 DB_PATH = DATA_DIR / "history.db"
 LOG_PATH = DATA_DIR / "app.log"
 _OLD_DATA_DIR = Path.home() / ".voice-transcriber"
@@ -452,7 +452,7 @@ class HistoryPanel:
         self.window = NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(
             NSMakeRect(0, 0, w, h), style, NSBackingStoreBuffered, False
         )
-        self.window.setTitle_("Open Whisper")
+        self.window.setTitle_("Open Wisper")
         self.window.center()
         self.window.setMinSize_(NSMakeRect(0, 0, 360, 400).size)
         self.window.setTitlebarAppearsTransparent_(True)
@@ -495,11 +495,11 @@ class HistoryPanel:
         conn.close()
 
         if not rows:
-            rumps.notification("Open Whisper", "", "No transcriptions to export")
+            rumps.notification("Open Wisper", "", "No transcriptions to export")
             return
 
         if fmt == "md":
-            lines = ["# Open Whisper — History\n"]
+            lines = ["# Open Wisper — History\n"]
             for txt, ts, app in rows:
                 app_str = f" ({app})" if app else ""
                 lines.append(f"### {ts}{app_str}\n\n{txt}\n")
@@ -513,11 +513,11 @@ class HistoryPanel:
             content = "\n\n".join(lines)
             ext = "txt"
 
-        out_path = Path.home() / "Desktop" / f"open-whisper-history.{ext}"
+        out_path = Path.home() / "Desktop" / f"open-wisper-history.{ext}"
         out_path.write_text(content, encoding="utf-8")
         log.info(f"export: saved {len(rows)} entries to {out_path}")
         subprocess.run(["open", "-R", str(out_path)], capture_output=True)
-        rumps.notification("Open Whisper", "", f"{len(rows)} transcriptions saved to Desktop")
+        rumps.notification("Open Wisper", "", f"{len(rows)} transcriptions saved to Desktop")
 
     def _render(self, rows, status, current_model=None):
         if not current_model:
@@ -764,8 +764,8 @@ class VoiceApp(rumps.App):
             # Open System Settings directly to the right page
             subprocess.run(['open', 'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility'],
                           capture_output=True)
-            rumps.notification("Open Whisper", "Accessibility Required",
-                             "Toggle ON Open Whisper in the System Settings window that just opened. If already ON, toggle OFF then ON.")
+            rumps.notification("Open Wisper", "Accessibility Required",
+                             "Toggle ON Open Wisper in the System Settings window that just opened. If already ON, toggle OFF then ON.")
 
         saved_model = get_setting("model", DEFAULT_MODEL)
         t0 = time.time()
@@ -821,7 +821,7 @@ class VoiceApp(rumps.App):
             rumps.alert("Permissions OK", "Accessibility permission is already granted.")
         else:
             request_accessibility()
-            rumps.notification("Open Whisper", "",
+            rumps.notification("Open Wisper", "",
                              "Flip the toggle in System Settings, then you're all set.")
 
     def _change_model(self, model):
@@ -832,7 +832,7 @@ class VoiceApp(rumps.App):
         self.model_ready = False
         self.title = "⏳"
         model_name = dict(MODELS).get(model, model.split("/")[-1])
-        rumps.notification("Open Whisper", "", f"Loading {model_name}...")
+        rumps.notification("Open Wisper", "", f"Loading {model_name}...")
         def do_switch():
             try:
                 # Pre-download model if not cached
@@ -840,12 +840,12 @@ class VoiceApp(rumps.App):
                 worker.restart(model)
                 self.model_ready = True
                 self.title = "🎤"
-                rumps.notification("Open Whisper", "", f"{model_name} ready")
+                rumps.notification("Open Wisper", "", f"{model_name} ready")
             except Exception as e:
                 log.error(f"change_model: error: {e}")
                 self.model_ready = True
                 self.title = "🎤"
-                rumps.notification("Open Whisper", "Error", f"Failed to load model: {e}")
+                rumps.notification("Open Wisper", "Error", f"Failed to load model: {e}")
         threading.Thread(target=do_switch, daemon=True).start()
 
     def _ensure_model_downloaded(self, model):
@@ -864,10 +864,10 @@ class VoiceApp(rumps.App):
 
     def _toggle(self, _):
         if not self.model_ready:
-            rumps.notification("Open Whisper", "", "Still loading, please wait...")
+            rumps.notification("Open Wisper", "", "Still loading, please wait...")
             return
         if self.processing:
-            rumps.notification("Open Whisper", "", "Still transcribing, please wait...")
+            rumps.notification("Open Wisper", "", "Still transcribing, please wait...")
             return
         if self.recording:
             self._stop_recording()
@@ -911,7 +911,7 @@ class VoiceApp(rumps.App):
                 self.recording = False
                 self.pa.terminate()
                 self.pa = None
-                rumps.notification("Open Whisper", "Microphone Error", "No audio device available. Check System Settings.")
+                rumps.notification("Open Wisper", "Microphone Error", "No audio device available. Check System Settings.")
                 return
 
         threading.Thread(target=self._record_loop, daemon=True).start()
@@ -977,7 +977,7 @@ class VoiceApp(rumps.App):
         if frame_count < 10:
             self.title = "🎤"
             self._reset_menu_title()
-            rumps.notification("Open Whisper", "", "No audio captured")
+            rumps.notification("Open Wisper", "", "No audio captured")
             return
 
         self.processing = True
@@ -1059,17 +1059,17 @@ class VoiceApp(rumps.App):
                 log.info(f"transcribe: PIPELINE TOTAL {total:.2f}s (whisper={whisper_time:.2f}s)")
 
                 if pasted:
-                    rumps.notification("Open Whisper", f"{total:.1f}s", text[:60])
+                    rumps.notification("Open Wisper", f"{total:.1f}s", text[:60])
                 elif not ax:
                     subprocess.run(['open', 'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility'],
                                   capture_output=True)
-                    rumps.notification("Open Whisper", "Accessibility OFF — Grant in Settings",
+                    rumps.notification("Open Wisper", "Accessibility OFF — Grant in Settings",
                                      text[:60])
                 else:
-                    rumps.notification("Open Whisper", "Copied — Press Cmd+V", text[:60])
+                    rumps.notification("Open Wisper", "Copied — Press Cmd+V", text[:60])
             else:
                 log.warning("transcribe: empty text")
-                rumps.notification("Open Whisper", "", "No speech detected")
+                rumps.notification("Open Wisper", "", "No speech detected")
 
         except Exception as e:
             log.error(f"transcribe: ERROR: {e}", exc_info=True)
