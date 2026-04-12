@@ -5,15 +5,15 @@ DATA_FILES = []
 OPTIONS = {
     'argv_emulation': False,
     'plist': {
-        'CFBundleName': 'VoiceTranscriber',
-        'CFBundleDisplayName': 'Voice Transcriber',
-        'CFBundleIdentifier': 'com.local.voicetranscriber',
+        'CFBundleName': 'OpenWhisper',
+        'CFBundleDisplayName': 'Open Whisper',
+        'CFBundleIdentifier': 'com.local.openwhisper',
         'CFBundleVersion': '1.0.0',
         'CFBundleShortVersionString': '1.0.0',
         'LSMinimumSystemVersion': '10.15',
         'LSUIElement': True,  # Menu bar app, no dock icon
-        'NSMicrophoneUsageDescription': 'Voice Transcriber needs microphone access to record your voice for transcription.',
-        'NSAppleEventsUsageDescription': 'Voice Transcriber needs automation access to paste transcribed text into other apps.',
+        'NSMicrophoneUsageDescription': 'Open Whisper needs microphone access to record your voice for transcription.',
+        'NSAppleEventsUsageDescription': 'Open Whisper needs automation access to paste transcribed text into other apps.',
     },
     'packages': ['rumps', 'pyaudio', 'mlx_whisper', 'mlx'],
     'includes': ['sqlite3', 'wave', 'struct', 'ApplicationServices'],

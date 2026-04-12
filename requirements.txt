@@ -3,3 +3,4 @@ pyaudio>=0.2.13
 mlx-whisper>=0.4.0
 numpy>=1.24.0
 pyobjc-framework-ApplicationServices>=9.0
+pyobjc-framework-WebKit>=9.0
