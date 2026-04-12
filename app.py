@@ -602,6 +602,293 @@ class HistoryPanel:
 history_panel = HistoryPanel()
 
 
+WIZARD_HTML = '''<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  background: linear-gradient(135deg, #faf7f2 0%, #f5f0e8 100%);
+  color: #3d3529;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  -webkit-user-select: none;
+}
+.card {
+  background: rgba(255,255,255,0.7);
+  border-radius: 16px;
+  border: 1px solid rgba(0,0,0,0.07);
+  padding: 28px 28px 24px;
+  width: 100%;
+  max-width: 360px;
+}
+.step { display: none; }
+.step.active { display: block; }
+.icon { font-size: 40px; text-align: center; margin-bottom: 14px; }
+h1 { font-size: 20px; font-weight: 700; text-align: center; color: #3d3529; margin-bottom: 8px; }
+.subtitle { font-size: 13px; color: #8a7e6c; text-align: center; line-height: 1.5; margin-bottom: 20px; }
+.features { list-style: none; margin-bottom: 20px; }
+.features li { font-size: 13px; color: #5a4e3c; padding: 4px 0; display: flex; align-items: center; gap: 8px; }
+.features li::before { content: "✓"; color: #6ba36b; font-weight: 700; }
+.btn {
+  width: 100%; padding: 11px; border-radius: 10px;
+  font-size: 14px; font-weight: 600; cursor: pointer;
+  border: none; font-family: inherit;
+  background: #5a4e3c; color: white;
+  transition: opacity 0.15s;
+}
+.btn:hover { opacity: 0.85; }
+.btn:disabled { opacity: 0.4; cursor: default; }
+.progress-wrap { background: rgba(0,0,0,0.06); border-radius: 6px; height: 8px; overflow: hidden; margin: 16px 0 8px; }
+.progress-bar { height: 100%; background: #6ba36b; border-radius: 6px; width: 0%; transition: width 0.3s ease; }
+.progress-info { font-size: 12px; color: #8a7e6c; text-align: center; margin-bottom: 4px; }
+.perm-row {
+  display: flex; align-items: center; gap: 12px;
+  background: rgba(255,255,255,0.6); border-radius: 10px;
+  padding: 12px 14px; margin-bottom: 8px;
+  border: 1px solid rgba(0,0,0,0.06);
+}
+.perm-icon { font-size: 22px; }
+.perm-info { flex: 1; }
+.perm-title { font-size: 13px; font-weight: 600; color: #3d3529; }
+.perm-hint { font-size: 11px; color: #9a8e7c; margin-top: 2px; }
+.perm-status { font-size: 18px; width: 24px; text-align: center; }
+.perm-btn {
+  background: none; border: 1px solid rgba(0,0,0,0.12); border-radius: 7px;
+  padding: 5px 11px; font-size: 11px; color: #5a4e3c; cursor: pointer;
+  font-family: inherit;
+}
+.perm-btn:disabled { opacity: 0.45; cursor: default; }
+.done-hint { font-size: 12px; color: #9a8e7c; text-align: center; margin: 16px 0 20px; line-height: 1.6; }
+</style>
+</head>
+<body>
+  <div class="card step active" id="s1">
+    <div class="icon">🎤</div>
+    <h1>Welcome to Open Wisper</h1>
+    <p class="subtitle">Local voice transcription for macOS.<br>Press Fn+R, speak, done — entirely on your device.</p>
+    <ul class="features">
+      <li>No cloud. No subscription. No API key</li>
+      <li>Auto-pastes into any app in ~1 second</li>
+      <li>Clipboard-safe — your content is preserved</li>
+      <li>Runs on Apple Silicon using MLX</li>
+    </ul>
+    <button class="btn" onclick="send({type:\'start\'})">Get Started</button>
+  </div>
+
+  <div class="card step" id="s2">
+    <div class="icon">⬇️</div>
+    <h1>Downloading AI Model</h1>
+    <p class="subtitle" id="dl-subtitle">Fetching Distil Whisper (~750 MB)…</p>
+    <div class="progress-wrap"><div class="progress-bar" id="dl-bar"></div></div>
+    <p class="progress-info" id="dl-info">Connecting…</p>
+  </div>
+
+  <div class="card step" id="s3">
+    <div class="icon">🔐</div>
+    <h1>Grant Permissions</h1>
+    <p class="subtitle">Two permissions enable the full experience.</p>
+    <div class="perm-row">
+      <div class="perm-icon">🎙</div>
+      <div class="perm-info">
+        <div class="perm-title">Microphone</div>
+        <div class="perm-hint">For recording your voice</div>
+      </div>
+      <span class="perm-status" id="mic-status">⬜</span>
+      <button class="perm-btn" id="mic-btn" onclick="send({type:\'check_mic\'})">Request</button>
+    </div>
+    <div class="perm-row">
+      <div class="perm-icon">⌨️</div>
+      <div class="perm-info">
+        <div class="perm-title">Accessibility</div>
+        <div class="perm-hint">For auto-pasting text into apps</div>
+      </div>
+      <span class="perm-status" id="ax-status">⬜</span>
+      <button class="perm-btn" id="ax-btn" onclick="send({type:\'check_ax\'})">Open Settings</button>
+    </div>
+    <button class="btn" onclick="send({type:\'continue\'})" style="margin-top:16px">Continue</button>
+  </div>
+
+  <div class="card step" id="s4">
+    <div class="icon">🎉</div>
+    <h1>You\'re all set!</h1>
+    <p class="subtitle">Open Wisper lives in your menu bar.</p>
+    <p class="done-hint">Press <strong>Fn+R</strong> to start recording.<br>Press <strong>Fn+R</strong> again to stop and transcribe.<br>Access history and settings from the 🎤 icon.</p>
+    <button class="btn" onclick="send({type:\'done\'})">Start Using Open Wisper</button>
+  </div>
+
+  <script>
+    function send(obj) { window.webkit.messageHandlers.wizard.postMessage(obj); }
+    function showStep(n) {
+      document.querySelectorAll(\'.step\').forEach(function(el, i) {
+        el.classList.toggle(\'active\', i === n - 1);
+      });
+    }
+    function setDownloadProgress(pct, downloadedMB, totalMB) {
+      document.getElementById(\'dl-bar\').style.width = pct + \'%\';
+      if (pct >= 100) {
+        document.getElementById(\'dl-subtitle\').textContent = \'Model ready \u2713\';
+        document.getElementById(\'dl-info\').textContent = \'Complete!\';
+      } else if (totalMB > 0) {
+        document.getElementById(\'dl-info\').textContent =
+          Math.round(downloadedMB) + \' MB / \' + Math.round(totalMB) + \' MB  (\' + pct + \'%)\';
+      } else {
+        document.getElementById(\'dl-info\').textContent = Math.round(downloadedMB) + \' MB downloaded…\';
+      }
+    }
+    function setPermission(type, status) {
+      var statusEl = document.getElementById(type + \'-status\');
+      var btnEl = document.getElementById(type + \'-btn\');
+      if (status === \'ok\') {
+        statusEl.textContent = \'\u2705\';
+        btnEl.textContent = \'Granted\';
+        btnEl.disabled = true;
+      } else if (status === \'error\') {
+        statusEl.textContent = \'\u274c\';
+        btnEl.textContent = \'Retry\';
+        btnEl.disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>'''
+
+
+class SetupWizard:
+    """First-run setup wizard: model download + permissions."""
+
+    def __init__(self, on_complete):
+        self.window = None
+        self.webview = None
+        self._handler = None
+        self.on_complete = on_complete
+        self._js_queue = None
+
+    def show(self, js_queue):
+        self._js_queue = js_queue
+
+        w, h = 460, 500
+        style = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable
+        self.window = NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(
+            NSMakeRect(0, 0, w, h), style, NSBackingStoreBuffered, False
+        )
+        self.window.setTitle_("Open Wisper — Setup")
+        self.window.center()
+        self.window.setTitlebarAppearsTransparent_(True)
+        self.window.setMinSize_(NSMakeRect(0, 0, w, h).size)
+
+        config = WKWebViewConfiguration.alloc().init()
+        self._handler = ScriptMessageHandler.alloc().initWithCallback_(self._on_message)
+        config.userContentController().addScriptMessageHandler_name_(self._handler, "wizard")
+
+        self.webview = WKWebView.alloc().initWithFrame_configuration_(
+            NSMakeRect(0, 0, w, h), config
+        )
+        self.webview.setAutoresizingMask_(0b010010)
+        self.webview.setValue_forKey_(True, "drawsTransparentBackground")
+        self.window.setContentView_(self.webview)
+        self.webview.loadHTMLString_baseURL_(WIZARD_HTML, None)
+
+        self.window.makeKeyAndOrderFront_(None)
+        NSApp.activateIgnoringOtherApps_(True)
+
+    def eval_js(self, js):
+        """Schedule JS evaluation on the main thread via the app's queue."""
+        if self._js_queue and self.webview:
+            wv = self.webview
+            self._js_queue.put(lambda: wv.evaluateJavaScript_completionHandler_(js, None))
+
+    def _on_message(self, body):
+        if not isinstance(body, dict):
+            return
+        t = body.get("type")
+        if t == "start":
+            self.eval_js("showStep(2)")
+            threading.Thread(target=self._do_download, daemon=True).start()
+        elif t == "check_mic":
+            threading.Thread(target=self._check_mic, daemon=True).start()
+        elif t == "check_ax":
+            threading.Thread(target=self._check_ax, daemon=True).start()
+        elif t == "continue":
+            self.eval_js("showStep(4)")
+        elif t == "done":
+            self._finish()
+
+    def _do_download(self):
+        """Stub — wired to real progress in Task 3."""
+        model = get_setting("model") or DEFAULT_MODEL
+        # Check if already cached
+        try:
+            from huggingface_hub import snapshot_download
+            snapshot_download(model, local_files_only=True)
+            already_cached = True
+        except Exception:
+            already_cached = False
+
+        if already_cached:
+            self.eval_js("setDownloadProgress(100, 0, 0)")
+        else:
+            self.eval_js("setDownloadProgress(5, 0, 0)")
+            # Real progress wired in Task 3; for now just download without progress
+            try:
+                from huggingface_hub import snapshot_download
+                snapshot_download(model)
+                self.eval_js("setDownloadProgress(100, 0, 0)")
+            except Exception as e:
+                log.error(f"wizard: download failed: {e}")
+
+        time.sleep(0.6)
+        self.eval_js("showStep(3)")
+        # Pre-check accessibility
+        if check_accessibility():
+            self.eval_js("setPermission('ax', 'ok')")
+
+    def _check_mic(self):
+        """Open a brief PyAudio stream to trigger the macOS microphone permission dialog."""
+        try:
+            pa = pyaudio.PyAudio()
+            stream = pa.open(
+                format=pyaudio.paInt16, channels=1, rate=16000,
+                input=True, frames_per_buffer=512
+            )
+            stream.read(512, exception_on_overflow=False)
+            stream.close()
+            pa.terminate()
+            self.eval_js("setPermission('mic', 'ok')")
+        except Exception as e:
+            log.warning(f"wizard: mic check failed: {e}")
+            self.eval_js("setPermission('mic', 'error')")
+
+    def _check_ax(self):
+        """Open Accessibility System Settings and poll for up to 15s."""
+        request_accessibility()
+        subprocess.run(
+            ['open', 'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility'],
+            capture_output=True
+        )
+        for _ in range(30):
+            time.sleep(0.5)
+            if check_accessibility():
+                self.eval_js("setPermission('ax', 'ok')")
+                return
+        # Timed out without grant
+        self.eval_js("setPermission('ax', 'error')")
+
+    def _finish(self):
+        set_setting("setup_complete", "1")
+        if self.window:
+            win = self.window
+            self._js_queue.put(lambda: win.close())
+        if self.on_complete:
+            self.on_complete()
+
+
 def play_sound(sound_name):
     subprocess.run(['afplay', f'/System/Library/Sounds/{sound_name}.aiff'],
                    capture_output=True)
