@@ -31,7 +31,7 @@ Press **Fn+R** → speak → press **Fn+R** again. Your words appear in whatever
 | **Model stays in RAM** | Model is loaded once and kept warm. No cold-start delay per recording |
 | **Menu bar app** | Lives in your menu bar. No dock icon, no window clutter |
 | **Sound feedback** | Audio cues for start, stop, and transcription complete |
-| **Open source** | ~1000 lines of Python. Read it, fork it, change anything |
+| **Open source** | ~1600 lines of Python. Read it, fork it, change anything |
 
 ---
 
@@ -130,14 +130,14 @@ Extremely small model. Noticeably more errors, especially on proper nouns, techn
 git clone https://github.com/YOUR_USERNAME/open-wisper.git
 cd open-wisper
 
-# 2. Install dependencies
-make install
+# 2. Install
+bash install.sh
 
 # 3. Run
 python3 app.py
 ```
 
-That's it. The first run downloads the default model (~750 MB) from HuggingFace. Subsequent launches are instant.
+That's it. On first launch a setup wizard guides you through downloading the AI model (~750 MB) and granting permissions. Subsequent launches are instant.
 
 ---
 
@@ -246,7 +246,7 @@ After rebuilding you'll need to re-grant Accessibility permission since the bund
 ## Project structure
 
 ```
-app.py           — the entire application (~1000 lines)
+app.py           — the entire application (~1600 lines)
 setup.py         — py2app config for building the .app bundle
 Makefile         — install / build / dev shortcuts
 requirements.txt — Python dependencies

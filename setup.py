@@ -7,7 +7,7 @@ OPTIONS = {
     'plist': {
         'CFBundleName': 'OpenWisper',
         'CFBundleDisplayName': 'Open Wisper',
-        'CFBundleIdentifier': 'com.local.openwhisper',
+        'CFBundleIdentifier': 'com.local.openwisper',
         'CFBundleVersion': '1.0.0',
         'CFBundleShortVersionString': '1.0.0',
         'LSMinimumSystemVersion': '10.15',

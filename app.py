@@ -1505,7 +1505,7 @@ class VoiceApp(rumps.App):
                 if key in self.menu:
                     self.menu[key].title = "⏺ Record  [Fn+R]"
                     return
-        except:
+        except Exception:
             pass
 
     def _transcribe(self):
