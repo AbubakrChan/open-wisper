@@ -1092,10 +1092,23 @@ def enable_launch_at_login():
     <string>{str(DATA_DIR / "launch-error.log")}</string>
 </dict>
 </plist>"""
+        LAUNCH_AGENT_PLIST.parent.mkdir(parents=True, exist_ok=True)
         LAUNCH_AGENT_PLIST.write_text(plist)
-        subprocess.run(['launchctl', 'load', str(LAUNCH_AGENT_PLIST)], capture_output=True)
-        set_setting("launch_at_login", "1")
-        log.info(f"launch_at_login: enabled, python={python_path}, app={app_path}")
+        result = subprocess.run(
+            ['launchctl', 'bootstrap', f'gui/{os.getuid()}', str(LAUNCH_AGENT_PLIST)],
+            capture_output=True
+        )
+        if result.returncode == 0:
+            set_setting("launch_at_login", "1")
+            log.info(f"launch_at_login: enabled, python={python_path}, app={app_path}")
+        else:
+            # Already registered (error code 119) counts as success
+            err = result.stderr.decode(errors='replace').strip()
+            if '119' in err or 'already' in err.lower():
+                set_setting("launch_at_login", "1")
+                log.info(f"launch_at_login: already registered, python={python_path}")
+            else:
+                log.error(f"launch_at_login: bootstrap failed: {err}")
     except Exception as e:
         log.error(f"launch_at_login: enable failed: {e}")
 
@@ -1104,7 +1117,10 @@ def disable_launch_at_login():
     """Remove LaunchAgent plist."""
     try:
         if LAUNCH_AGENT_PLIST.exists():
-            subprocess.run(['launchctl', 'unload', str(LAUNCH_AGENT_PLIST)], capture_output=True)
+            subprocess.run(
+                ['launchctl', 'bootout', f'gui/{os.getuid()}', str(LAUNCH_AGENT_PLIST)],
+                capture_output=True
+            )
             LAUNCH_AGENT_PLIST.unlink()
         set_setting("launch_at_login", "0")
         log.info("launch_at_login: disabled")
