@@ -123,9 +123,6 @@ import sys, os, time, json
 sys.path.insert(0, "__USER_SITE__")
 os.environ["PATH"] = "/opt/homebrew/bin:" + os.environ.get("PATH", "")'''.replace("__USER_SITE__", site.getusersitepackages()) + '''
 
-# Redirect stderr so download progress bars don't corrupt stdout
-sys.stderr = open(os.devnull, "w")
-
 import mlx.core as mx
 
 # Cap MLX Metal cache at 200MB between transcriptions
