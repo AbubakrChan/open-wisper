@@ -604,36 +604,52 @@ history_panel = HistoryPanel()
 
 def download_model_with_progress(model, on_progress):
     """
-    Download a HuggingFace model, calling on_progress(pct, downloaded_mb, total_mb)
-    periodically. Uses snapshot_download's tqdm_class hook to intercept file-level
-    progress. Progress is cumulative across all files in the repo.
+    Download a HuggingFace model, calling on_progress(pct, downloaded_mb, total_mb).
+    Uses snapshot_download's tqdm_class hook. In huggingface_hub 1.8.0, a single
+    _ProgressTqdm instance is created; its .total attribute is mutated directly by
+    the internal _AggregatedTqdm wrapper.
     """
     from huggingface_hub import snapshot_download
 
-    downloaded_bytes = [0]
-    total_bytes = [0]
+    _last_reported = [0]  # rate limiting: last reported byte count
 
     class _ProgressTqdm:
+        _lock = None
+
         def __init__(self, *args, **kwargs):
-            self._file_total = kwargs.get('total', 0)
-            total_bytes[0] += self._file_total
+            self.total = kwargs.get('total') or 0
+            self.n = 0
 
         def update(self, n=1):
-            downloaded_bytes[0] += n
-            t = total_bytes[0]
-            d = downloaded_bytes[0]
+            self.n += n
+            t = self.total
+            d = self.n
+            # Rate-limit: update UI at most every 1 MB to avoid flooding the main thread
+            if d - _last_reported[0] < 1_048_576 and d < t:
+                return
+            _last_reported[0] = d
             pct = min(99, int(d / t * 100)) if t > 0 else 0
-            on_progress(pct, d / 1024 / 1024, t / 1024 / 1024)
+            on_progress(pct, d / 1_048_576, t / 1_048_576)
 
+        def refresh(self): pass
         def __enter__(self): return self
-        def __exit__(self, *args): pass
-        def set_postfix(self, **kwargs): pass
-        def set_description(self, *args, **kwargs): pass
+        def __exit__(self, *a): pass
+        def set_description(self, *a, **kw): pass
+        def set_postfix(self, *a, **kw): pass
         def close(self): pass
 
+        @classmethod
+        def get_lock(cls):
+            if cls._lock is None:
+                cls._lock = threading.RLock()
+            return cls._lock
+
+        @classmethod
+        def set_lock(cls, lock):
+            cls._lock = lock
+
     snapshot_download(model, tqdm_class=_ProgressTqdm)
-    t = total_bytes[0]
-    on_progress(100, t / 1024 / 1024, t / 1024 / 1024)
+    on_progress(100, 0, 0)
 
 
 WIZARD_HTML = '''<!DOCTYPE html>
@@ -877,9 +893,13 @@ class SetupWizard:
         # Check if already cached (snapshot_download raises if not cached + local_files_only)
         try:
             from huggingface_hub import snapshot_download
+            from huggingface_hub.errors import LocalEntryNotFoundError
             snapshot_download(model, local_files_only=True)
             already_cached = True
-        except Exception:
+        except (LocalEntryNotFoundError, EnvironmentError):
+            already_cached = False
+        except Exception as e:
+            log.warning(f"wizard: cache check unexpected error: {e}")
             already_cached = False
 
         if already_cached:
