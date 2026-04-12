@@ -190,7 +190,7 @@ class TranscribeWorker:
         env = {**os.environ, "PYTHONIOENCODING": "utf-8", "LANG": "en_US.UTF-8"}
         self._proc = subprocess.Popen(
             [PYTHON, "-c", WORKER_SCRIPT],
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             text=True, encoding="utf-8", env=env
         )
         # Send model name, then wait for "ready" signal
@@ -199,7 +199,8 @@ class TranscribeWorker:
         line = self._proc.stdout.readline()
         if not line:
             rc = self._proc.poll()
-            raise RuntimeError(f"worker subprocess exited early (rc={rc}) — check that mlx is installed")
+            err = self._proc.stderr.read(2000) if self._proc.stderr else ""
+            raise RuntimeError(f"worker subprocess exited early (rc={rc}): {err.strip()}")
         info = json.loads(line)
         log.info(f"worker: started, model={self.model}, import_time={info.get('import_time')}s")
         # Warm up: transcribe a tiny silent WAV to page model weights into memory
