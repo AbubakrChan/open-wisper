@@ -1698,9 +1698,7 @@ class VoiceApp(rumps.App):
                 if pasted:
                     self._notify("Open Wisper", f"{total:.1f}s", text[:60])
                 elif not ax:
-                    subprocess.run(['open', 'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility'],
-                                  capture_output=True)
-                    self._notify("Open Wisper", "Accessibility OFF — Grant in Settings", text[:60])
+                    self._notify("Open Wisper", "Copied — Grant Accessibility for auto-paste", text[:60])
                 else:
                     self._notify("Open Wisper", "Copied — Press Cmd+V", text[:60])
             else:
