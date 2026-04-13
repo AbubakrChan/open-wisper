@@ -1670,9 +1670,9 @@ class VoiceApp(rumps.App):
                 if ax:
                     # Save old clipboard, paste transcription, restore clipboard after 300ms
                     t0 = time.time()
-                    old_clip = subprocess.run(['pbpaste'], capture_output=True, text=True).stdout
+                    old_clip = subprocess.run(['pbpaste'], capture_output=True, encoding='utf-8', errors='replace').stdout
                     p = subprocess.Popen(['pbcopy'], stdin=subprocess.PIPE)
-                    p.communicate(text.encode())
+                    p.communicate(text.encode('utf-8'))
                     log.info(f"transcribe: clipboard set in {time.time()-t0:.3f}s")
                     time.sleep(0.1)
                     t0 = time.time()
@@ -1682,13 +1682,13 @@ class VoiceApp(rumps.App):
                         def _restore(old=old_clip):
                             time.sleep(0.3)
                             p2 = subprocess.Popen(['pbcopy'], stdin=subprocess.PIPE)
-                            p2.communicate(old.encode())
+                            p2.communicate(old.encode('utf-8'))
                             log.info("transcribe: clipboard restored")
                         threading.Thread(target=_restore, daemon=True).start()
                 else:
                     # No accessibility — copy to clipboard so user can Cmd+V manually
                     p = subprocess.Popen(['pbcopy'], stdin=subprocess.PIPE)
-                    p.communicate(text.encode())
+                    p.communicate(text.encode('utf-8'))
                     log.info("transcribe: no accessibility, copied to clipboard")
 
                 threading.Thread(target=lambda: play_sound("Glass"), daemon=True).start()
