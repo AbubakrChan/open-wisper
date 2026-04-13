@@ -1378,15 +1378,12 @@ class VoiceApp(rumps.App):
         ax = check_accessibility()
         log.info(f"startup: accessibility={ax}")
         if not ax:
-            log.info("startup: requesting accessibility permission")
-            request_accessibility()
-            # Open System Settings directly to the right page
-            subprocess.run(['open', 'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility'],
-                          capture_output=True)
-            # rumps.notification must run on the main thread
+            log.info("startup: accessibility missing — notifying user")
+            # Don't auto-open System Settings or pop a dialog on every launch.
+            # Just show a notification so the user knows why auto-paste won't work.
             self._main_thread_queue.put(lambda: rumps.notification(
-                "Open Wisper", "Accessibility Required",
-                "Toggle ON Open Wisper in System Settings → Privacy & Security → Accessibility."
+                "Open Wisper", "Grant Accessibility for auto-paste",
+                "System Settings → Privacy & Security → Accessibility → enable Open Wisper"
             ))
 
         saved_model = get_setting("model", DEFAULT_MODEL)
