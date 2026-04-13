@@ -8,6 +8,21 @@ Built because Wispr Flow was too slow — sometimes taking 5–10 seconds to fil
 
 ---
 
+## Fully local. Fully private.
+
+Everything runs on your Mac. Nothing leaves your device.
+
+- **No account** — there is no sign-up, no login, no profile
+- **No API key** — the AI model runs directly on your Apple Silicon chip
+- **No internet after setup** — the model is downloaded once, then works offline forever
+- **No audio storage** — recordings are processed and immediately discarded; only the final text is saved
+- **No telemetry** — the app has no analytics, no crash reporting, no phone-home of any kind
+- **Open source** — every line of code is in `app.py`. Read it, verify it, change it
+
+The only network request the app ever makes is the one-time model download from HuggingFace.
+
+---
+
 ## How it works
 
 Press **Fn+R** → speak → press **Fn+R** again. Your words appear in whatever app you were using, as if you typed them. The full pipeline runs locally on your Mac in ~1 second.
@@ -217,6 +232,46 @@ Distil-Whisper Large v3 is 6x smaller than full Whisper Large v3 but retains ~98
 
 ---
 
+## Customization
+
+Open Wisper is designed to be easy to modify. Everything is in one file — `app.py` — with a clear configuration section at the top.
+
+**Add any Whisper model from HuggingFace**
+
+Find the `MODELS` list near the top of `app.py` and add a line:
+
+```python
+MODELS = [
+    ("mlx-community/distil-whisper-large-v3", "Distil Large V3 — fastest, English"),
+    ("your-org/your-model",                   "My custom model"),  # ← add here
+    ...
+]
+```
+
+Any `mlx-community` Whisper model on HuggingFace works. The app will offer it in the Settings panel and download it on demand.
+
+**Switch to a different language**
+
+Find `language="en"` inside the `WORKER_SCRIPT` block (~line 140) and change it:
+
+```python
+# French
+language="fr"
+
+# Auto-detect (any language, adds ~0.4s per recording)
+# remove the language= argument entirely
+```
+
+**Change the default hotkey in code**
+
+The default hotkey on first launch is set by `DEFAULT_HOTKEY_KEYCODE` and `DEFAULT_HOTKEY_FLAGS` at the top of `app.py`. Existing users can always change their hotkey without touching code via History panel → Settings → Hotkey.
+
+**Everything else**
+
+The app is ~1600 lines of straightforward Python. No framework, no abstraction layers. Read it top to bottom in 20 minutes and change whatever you want.
+
+---
+
 ## Data
 
 All data lives in `~/.open-wisper/`:
@@ -241,10 +296,10 @@ To fully reset: `rm -rf ~/.open-wisper/`
 → Accessibility permission is missing. Open System Settings → Privacy & Security → Accessibility → add and enable Python (or OpenWisper.app).
 
 **Text not auto-pasting**
-→ Same as above. The app opens System Settings automatically when permission is missing.
+→ Accessibility permission is missing. Go to System Settings → Privacy & Security → Accessibility and enable Python (or OpenWisper.app). Without it, transcriptions are still copied to your clipboard — just press Cmd+V manually.
 
-**App opens System Settings on every launch**
-→ Accessibility permission was revoked (this happens when you rebuild the `.app` bundle or reinstall Python). Re-grant it in System Settings → Privacy & Security → Accessibility.
+**App keeps asking for Accessibility on every launch**
+→ Accessibility permission is tied to the app's code signature. It resets every time you run `make rebuild`. Solution: use `python3 app.py` for day-to-day use — grant permission once for Python and it never resets. Only rebuild the bundle when distributing.
 
 **Recording cuts out or sounds wrong**
 → Try a different microphone in History panel → Settings → Microphone.
