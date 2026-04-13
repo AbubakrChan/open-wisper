@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 200" width="820" height="200">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#141008"/>
+      <stop offset="100%" stop-color="#251706"/>
+    </linearGradient>
+    <linearGradient id="mic" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#d97706"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="820" height="200" rx="14" fill="url(#bg)"/>
+  <rect width="820" height="200" rx="14" fill="none" stroke="#3a2510" stroke-width="1.5"/>
+
+  <!-- Waveform decoration -->
+  <g fill="#f59e0b">
+    <rect x="588" y="68"  width="5" height="64" rx="2.5" opacity="0.18"/>
+    <rect x="600" y="82"  width="5" height="36" rx="2.5" opacity="0.22"/>
+    <rect x="612" y="58"  width="5" height="84" rx="2.5" opacity="0.28"/>
+    <rect x="624" y="74"  width="5" height="52" rx="2.5" opacity="0.22"/>
+    <rect x="636" y="64"  width="5" height="72" rx="2.5" opacity="0.32"/>
+    <rect x="648" y="78"  width="5" height="44" rx="2.5" opacity="0.22"/>
+    <rect x="660" y="60"  width="5" height="80" rx="2.5" opacity="0.38"/>
+    <rect x="672" y="72"  width="5" height="56" rx="2.5" opacity="0.28"/>
+    <rect x="684" y="54"  width="5" height="92" rx="2.5" opacity="0.44"/>
+    <rect x="696" y="70"  width="5" height="60" rx="2.5" opacity="0.32"/>
+    <rect x="708" y="62"  width="5" height="76" rx="2.5" opacity="0.38"/>
+    <rect x="720" y="80"  width="5" height="40" rx="2.5" opacity="0.24"/>
+    <rect x="732" y="66"  width="5" height="68" rx="2.5" opacity="0.30"/>
+    <rect x="744" y="76"  width="5" height="48" rx="2.5" opacity="0.22"/>
+    <rect x="756" y="58"  width="5" height="84" rx="2.5" opacity="0.18"/>
+    <rect x="768" y="72"  width="5" height="56" rx="2.5" opacity="0.14"/>
+    <rect x="780" y="82"  width="5" height="36" rx="2.5" opacity="0.10"/>
+  </g>
+
+  <!-- Mic glow halo -->
+  <circle cx="96" cy="100" r="52" fill="#d97706" fill-opacity="0.07" filter="url(#glow)"/>
+
+  <!-- Microphone body -->
+  <rect x="80" y="44" width="32" height="68" rx="16" fill="url(#mic)"/>
+
+  <!-- Mic grille lines -->
+  <line x1="80" y1="72" x2="112" y2="72" stroke="#92400e" stroke-width="1.2" opacity="0.5"/>
+  <line x1="80" y1="82" x2="112" y2="82" stroke="#92400e" stroke-width="1.2" opacity="0.5"/>
+  <line x1="80" y1="92" x2="112" y2="92" stroke="#92400e" stroke-width="1.2" opacity="0.5"/>
+
+  <!-- Mic stand arc -->
+  <path d="M 64 104 Q 64 138 96 138 Q 128 138 128 104"
+        stroke="#f59e0b" stroke-width="4" stroke-linecap="round" fill="none"/>
+  <!-- Mic stand vertical -->
+  <line x1="96" y1="138" x2="96" y2="154" stroke="#f59e0b" stroke-width="4" stroke-linecap="round"/>
+  <!-- Mic stand base -->
+  <line x1="76" y1="154" x2="116" y2="154" stroke="#f59e0b" stroke-width="4.5" stroke-linecap="round"/>
+
+  <!-- Title -->
+  <text x="162" y="94"
+        font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Helvetica, Arial, sans-serif"
+        font-size="50" font-weight="700" fill="#f5efe6" letter-spacing="-1.5">Open Wisper</text>
+
+  <!-- Tagline -->
+  <text x="163" y="130"
+        font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Helvetica, Arial, sans-serif"
+        font-size="17" fill="#9a8470">Local voice transcription for macOS. Press a key, speak, done.</text>
+
+  <!-- Pills row -->
+  <rect x="163" y="150" width="106" height="24" rx="12" fill="#d97706" fill-opacity="0.12"/>
+  <text x="216" y="167" text-anchor="middle"
+        font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif"
+        font-size="11.5" font-weight="500" fill="#f59e0b">Apple Silicon</text>
+
+  <rect x="277" y="150" width="90" height="24" rx="12" fill="#d97706" fill-opacity="0.12"/>
+  <text x="322" y="167" text-anchor="middle"
+        font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif"
+        font-size="11.5" font-weight="500" fill="#f59e0b">100% Local</text>
+
+  <rect x="375" y="150" width="104" height="24" rx="12" fill="#d97706" fill-opacity="0.12"/>
+  <text x="427" y="167" text-anchor="middle"
+        font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif"
+        font-size="11.5" font-weight="500" fill="#f59e0b">~1s pipeline</text>
+</svg>

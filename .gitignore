@@ -8,4 +8,4 @@ __pycache__/
 *.app/
 mlx_models/
 .cache/
-docs/
+docs/superpowers/

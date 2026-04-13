@@ -1,10 +1,60 @@
-# Open Wisper
+<div align="center">
+  <img src="assets/banner.svg" alt="Open Wisper" width="820"/>
 
-> Local voice transcription for macOS. Press a key, speak, done.
+  <br/>
+  <br/>
 
-Built because Wispr Flow was too slow — sometimes taking 5–10 seconds to fill in a transcription, occasionally failing silently. We live in an age where Apple Silicon can run a state-of-the-art speech model in under a second, entirely on your device. Open Wisper is that: a small, fast, transparent app that does one thing well.
+  <a href="https://github.com/YOUR_USERNAME/open-wisper/blob/main/LICENSE">
+    <img src="https://img.shields.io/badge/license-MIT-22c55e?style=flat-square" alt="MIT License"/>
+  </a>
+  <img src="https://img.shields.io/badge/macOS-12%2B-lightgrey?style=flat-square&logo=apple&logoColor=white" alt="macOS 12+"/>
+  <img src="https://img.shields.io/badge/Apple%20Silicon-M1%20·%20M2%20·%20M3%20·%20M4-blue?style=flat-square&logo=apple&logoColor=white" alt="Apple Silicon"/>
+  <img src="https://img.shields.io/badge/Python-3.9%2B-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.9+"/>
+  <img src="https://img.shields.io/badge/powered%20by-MLX-ff6b35?style=flat-square" alt="Powered by MLX"/>
 
-**No subscription. No cloud. No clipboard pollution. Just your voice, pasted.**
+  <br/>
+  <br/>
+
+  <p>
+    Built because Wispr Flow was too slow — sometimes 5–10 seconds per transcription, occasionally failing silently.<br/>
+    Apple Silicon can run a state-of-the-art speech model in under a second, entirely on your device.<br/>
+    Open Wisper does exactly that.
+  </p>
+
+  <strong>No subscription. No cloud. No clipboard pollution. Just your voice, pasted.</strong>
+
+</div>
+
+---
+
+## What it does
+
+Press **Fn+R** → speak → press **Fn+R** again.
+
+Your words appear in whatever app you were using, as if you typed them. The full pipeline — recording, transcription, paste — completes in ~1 second. Everything runs locally on your Mac. Nothing is sent anywhere.
+
+---
+
+## Features
+
+| | |
+|---|---|
+| **Global hotkey** | Fn+R toggles recording from any app — customizable in Settings |
+| **Auto-paste** | Text is pasted directly into your active window. No Cmd+V needed |
+| **Clipboard-safe** | Your clipboard is preserved. Old content is restored within 300ms |
+| **100% local** | Audio never leaves your Mac. No account, no API key, no internet after setup |
+| **Custom hotkey** | Change the trigger key from Settings — no code editing needed |
+| **Model selection** | 4 models: trade off speed, RAM, and accuracy |
+| **Microphone selection** | Built-in mic, AirPods, USB interface — switch any time |
+| **Transcription history** | Every recording saved to a local SQLite database |
+| **Filter by app** | Transcriptions grouped by which app was active when you recorded |
+| **Export** | Save full history as `.md` or `.txt` in one click |
+| **Launch at login** | Start automatically with macOS — toggle in Settings |
+| **Apple Silicon optimized** | Uses MLX, Apple's own ML framework for on-device inference |
+| **Model stays in RAM** | Loaded once at startup, kept warm. No cold-start delay per recording |
+| **Menu bar app** | Lives in your menu bar. No dock icon, no window clutter |
+| **Sound feedback** | Audio cues for start, stop, and transcription complete |
+| **Open source** | ~1600 lines of Python. Read it, fork it, change anything |
 
 ---
 
@@ -13,41 +63,13 @@ Built because Wispr Flow was too slow — sometimes taking 5–10 seconds to fil
 Everything runs on your Mac. Nothing leaves your device.
 
 - **No account** — there is no sign-up, no login, no profile
-- **No API key** — the AI model runs directly on your Apple Silicon chip
-- **No internet after setup** — the model is downloaded once, then works offline forever
+- **No API key** — the AI model runs directly on your Apple Silicon chip via MLX
+- **No internet after setup** — the model is downloaded once (~750 MB), then works offline forever
 - **No audio storage** — recordings are processed and immediately discarded; only the final text is saved
-- **No telemetry** — the app has no analytics, no crash reporting, no phone-home of any kind
-- **Open source** — every line of code is in `app.py`. Read it, verify it, change it
+- **No telemetry** — no analytics, no crash reporting, no phone-home of any kind
+- **Verifiable** — every line of code is in `app.py`. Read it and confirm it yourself
 
 The only network request the app ever makes is the one-time model download from HuggingFace.
-
----
-
-## How it works
-
-Press **Fn+R** → speak → press **Fn+R** again. Your words appear in whatever app you were using, as if you typed them. The full pipeline runs locally on your Mac in ~1 second.
-
----
-
-## Features
-
-| | |
-|---|---|
-| **Global hotkey** | Fn+R starts and stops recording from any app (customizable in Settings) |
-| **Auto-paste** | Text is pasted directly into your active window — no Cmd+V needed |
-| **Clipboard-safe** | Your clipboard is not overwritten. The old content is restored within 300ms |
-| **Everything local** | Audio never leaves your Mac. No account, no API key, no internet after setup |
-| **Model selection** | 4 models to choose from: trade off speed vs. RAM vs. accuracy |
-| **Microphone selection** | Pick any input device — built-in mic, AirPods, USB interface |
-| **Custom hotkey** | Change the trigger key from the Settings panel — no code editing needed |
-| **Transcription history** | Every recording saved to a local SQLite database |
-| **Filter by app** | See transcriptions grouped by which app was active when you recorded |
-| **Export** | Save your full history as `.md` or `.txt` in one click |
-| **Apple Silicon optimized** | Uses MLX — the same framework Apple uses for on-device AI |
-| **Model stays in RAM** | Model is loaded once and kept warm. No cold-start delay per recording |
-| **Menu bar app** | Lives in your menu bar. No dock icon, no window clutter |
-| **Sound feedback** | Audio cues for start, stop, and transcription complete |
-| **Open source** | ~1600 lines of Python. Read it, fork it, change anything |
 
 ---
 
@@ -56,7 +78,7 @@ Press **Fn+R** → speak → press **Fn+R** again. Your words appear in whatever
 - macOS 12 or later
 - Apple Silicon (M1 / M2 / M3 / M4)
 - Python 3.9+
-- Homebrew (for PortAudio)
+- Homebrew
 
 ---
 
@@ -64,69 +86,47 @@ Press **Fn+R** → speak → press **Fn+R** again. Your words appear in whatever
 
 ### Step 1 — Clone and install
 
-Open Terminal and run:
-
 ```bash
 git clone https://github.com/YOUR_USERNAME/open-wisper.git
 cd open-wisper
 bash install.sh
 ```
 
-`install.sh` checks your system, installs PortAudio via Homebrew, and installs all Python dependencies. It takes about a minute. You'll see a summary when it's done.
+`install.sh` checks your system, installs PortAudio via Homebrew, and installs all Python dependencies. Takes about a minute.
 
----
-
-### Step 2 — Launch the app
+### Step 2 — Launch
 
 ```bash
 python3 app.py
 ```
 
-The app starts in your menu bar. You'll see a **setup wizard** appear automatically — it walks you through the two things needed before the app can work.
+A **setup wizard** appears automatically on first launch. It walks you through the two things needed before the app works.
 
----
+### Step 3 — Download the AI model
 
-### Step 3 — Download the AI model (wizard: step 1)
+The wizard downloads **Distil-Whisper Large v3** (~750 MB) with a live progress bar. This happens once. The model is cached and reused on every future launch — no internet needed after this.
 
-The wizard's first step downloads the speech model. The default model is **Distil-Whisper Large v3** (~750 MB). A progress bar shows download status. This happens once — the model is cached and reused on every future launch.
+### Step 4 — Grant Microphone access
 
-> If the download fails, check your internet connection and relaunch. The wizard will re-appear.
+The wizard prompts macOS to request microphone access. Click **Allow**.
 
----
+If you missed it: System Settings → Privacy & Security → Microphone → enable **Python**.
 
-### Step 4 — Grant Microphone access (wizard: step 2)
+### Step 5 — Grant Accessibility access
 
-The wizard will prompt macOS to ask for microphone access. Click **Allow** in the dialog that appears.
+This is what lets the app auto-paste into other apps. macOS requires this to be granted manually.
 
-If you missed it or clicked Deny:
+The wizard opens System Settings to the right page. Then:
 
-1. Open **System Settings**
-2. Go to **Privacy & Security → Microphone**
-3. Find **Python** (or **OpenWisper** if using the app bundle) and toggle it **ON**
+1. Click **+** at the bottom of the Accessibility list
+2. Select `python3` (or `OpenWisper.app` if using the app bundle)
+3. Toggle it **ON**
 
----
-
-### Step 5 — Grant Accessibility access (wizard: step 3)
-
-This is what lets the app paste text into other apps automatically. macOS requires you to grant this manually — it cannot be granted via a dialog.
-
-The wizard opens System Settings to the right page automatically. Here is what to do:
-
-1. System Settings will open to **Privacy & Security → Accessibility**
-2. Click the **+** button at the bottom of the list
-3. Navigate to and select `python3` (or `OpenWisper.app` if using the app bundle)
-4. Make sure the toggle next to it is **ON**
-5. Switch back to the app — it will detect the permission automatically
-
-> Without Accessibility, the app still works: transcriptions are saved and copied to your clipboard. You just press Cmd+V manually instead of having it auto-paste.
-
----
+> Without Accessibility the app still works — transcriptions are saved and copied to your clipboard. Press Cmd+V manually.
 
 ### Step 6 — You're ready
 
-The wizard closes. The **microphone icon (🎤)** appears in your menu bar. The model loads in the background — this takes 5–15 seconds on first launch.
-
-Once the icon is visible and the model is loaded, you're done with setup. Every future launch is instant.
+The 🎤 icon appears in your menu bar. Model loads in the background (5–15 seconds on first run). Every future launch is instant.
 
 ---
 
@@ -136,109 +136,65 @@ Once the icon is visible and the model is loaded, you're done with setup. Every 
 |--------|-----|
 | Start recording | Press **Fn+R** (or your custom hotkey) |
 | Stop and transcribe | Press **Fn+R** again |
-| View history / change settings | Click 🎤 in the menu bar → **History** |
-| Change microphone | History panel → Settings → Microphone |
-| Change model | History panel → Settings → Model |
-| Change hotkey | History panel → Settings → Hotkey → click **Record** → press your new key combo |
-| Launch at login | History panel → Settings → At Login |
-| Export history | History panel → Export .md or Export .txt |
+| View history / settings | Click 🎤 in the menu bar → **History** |
+| Change microphone | History → Settings → Microphone |
+| Change model | History → Settings → Model |
+| Change hotkey | History → Settings → Hotkey → **Record** → press new combo |
+| Launch at login | History → Settings → At Login |
+| Export history | History → Export .md or Export .txt |
 
 Menu bar icon states: 🎤 ready · 🔴 recording · ⏳ loading / transcribing
 
 ---
 
-## Changing your hotkey
-
-Open the History panel (click 🎤 → History). In the **Settings** section:
-
-1. Find the **Hotkey** row — it shows your current hotkey (default: `Fn+R`)
-2. Click **Record**
-3. Press the key combination you want (e.g. Fn+T, or ⌃Space, or ⌥R)
-4. The new hotkey is saved immediately and works right away
-
-The hotkey requires at least one modifier key (Fn, Control, Option, or Command). Bare letter keys are ignored to avoid interfering with typing.
-
----
-
 ## Models
 
-Choose your model based on your Mac's RAM and what languages you speak. Change it any time in the Settings panel without restarting.
+| Model | RAM | Speed | Languages |
+|-------|-----|-------|-----------|
+| **Distil Large V3** ← default | ~1.4 GB | fastest | English only |
+| **Turbo Q8** | ~880 MB | fast | English + multilingual |
+| **Large V3 Turbo** | ~1.6 GB | fast | All languages |
+| **Tiny** | ~100 MB | ultra fast | All (lower accuracy) |
 
-### Distil Large V3 — default, recommended for English
+**Distil Large V3** is the default and recommended for most people. It skips language detection entirely — that single optimization saves ~0.4s on every recording and is why the pipeline hits ~1s. If you primarily speak English, use this.
 
-```
-RAM: ~1.4 GB   Speed: fastest   Language: English only
-```
+**Turbo Q8** saves ~560 MB of RAM at a ~15% speed cost. Useful if you have 8 GB RAM and run memory-heavy apps alongside this one.
 
-The best choice for most people. Near-Large quality at a fraction of the size. Language detection is skipped entirely, making it noticeably faster. **If you speak English, use this.**
+**Large V3 Turbo** runs language detection, then transcribes in whatever language you spoke. Use this if you switch between languages or speak a non-English language.
 
-### Turbo Q8 — best for low-RAM Macs
+**Tiny** is for extremely RAM-constrained situations. Expect noticeably more errors on proper nouns and technical terms.
 
-```
-RAM: ~880 MB   Speed: fast (~15% slower)   Language: English + multilingual
-```
-
-8-bit quantized version of Whisper Large v3 Turbo. Saves ~560 MB of RAM. **Use this if you have 8 GB RAM and run other memory-heavy apps** (Xcode, Chrome, etc.).
-
-### Large V3 Turbo — multilingual
-
-```
-RAM: ~1.6 GB   Speed: fast   Language: all languages
-```
-
-Full-precision multilingual model. Language detection runs (~0.4s overhead), then transcribes in whatever language you spoke. **Use this if you switch between languages** or speak a non-English language.
-
-### Tiny — for constrained environments
-
-```
-RAM: ~100 MB   Speed: ultra fast   Language: multilingual (lower accuracy)
-```
-
-Extremely small model. Noticeable errors on proper nouns, technical terms, and accents. **Use this only if RAM is very constrained.**
+Change models any time in the Settings panel — no restart needed.
 
 ---
 
 ## How we made it fast
 
-Whisper is accurate but not inherently fast. Getting to sub-second transcription on an everyday Mac took several deliberate choices:
+Whisper is accurate but not inherently fast. Getting to ~1s on an everyday Mac took several deliberate choices:
 
-**1. Skip language detection (the biggest win)**
+**Skip language detection** — Whisper normally runs a detection pass before transcribing, adding 0.3–0.5s. Setting `language="en"` skips it entirely. This is the biggest single win.
 
-Whisper normally runs a language detection pass before transcribing — this adds ~0.3–0.5 seconds per recording. Setting `language="en"` skips detection entirely and goes straight to transcribing. The tradeoff: English only. For other languages, use Large V3 Turbo with detection enabled.
+**Model stays in memory** — most tools load the model fresh on every transcription (3–5s overhead). Open Wisper loads the model once at startup in a persistent subprocess and keeps it there.
 
-**2. Model loaded once, stays in memory**
+**Warmup run** — immediately after loading, a 0.5s silent clip runs through the model to page weights into GPU memory. Your first real recording is as fast as every other.
 
-Most tools load the AI model fresh on every transcription — 3–5 seconds of overhead every time. Open Wisper loads the model once at startup in a persistent background subprocess and keeps it there. You pay the loading cost once; subsequent transcriptions start immediately.
+**Keepalive every 3 minutes** — macOS can evict GPU memory from idle processes. A silent ping every 3 minutes keeps model weights resident, so you get fast transcription even after a long break.
 
-**3. Warmup run**
+**Metal cache cap at 200 MB** — MLX's GPU memory cache is capped at 200 MB instead of the default 400 MB+. Less memory pressure on 8 GB Macs.
 
-When the model first loads, its weights are in memory but not yet paged in to the GPU. The first transcription would be slow. A 0.5-second silent audio clip runs through the model immediately after loading, forcing the GPU to page in all the weights before your first real recording.
+**16 kHz mono audio** — Whisper was trained on 16 kHz mono. We record at exactly this format, skipping any resampling step before inference.
 
-**4. Keepalive every 3 minutes**
-
-macOS can evict GPU memory from idle processes. A silent ping runs every 3 minutes to keep model weights resident. Fast transcription even after a long break.
-
-**5. Metal cache capped at 200 MB**
-
-MLX maintains a GPU memory cache between operations. By default it can grow to 400 MB+. We cap it at 200 MB to reduce memory pressure, especially on 8 GB Macs.
-
-**6. 16 kHz mono audio**
-
-Whisper was trained on 16 kHz mono. We record at exactly this format — no resampling step before inference.
-
-**7. Distillation (default model)**
-
-Distil-Whisper Large v3 is 6x smaller than full Whisper Large v3 but retains ~98% of the accuracy for English — the best quality-to-speed ratio for the common case.
+**Distillation** — Distil-Whisper Large v3 is 6× smaller than full Whisper Large v3 but retains ~98% of English accuracy. It's the default for a reason.
 
 ---
 
 ## Customization
 
-Open Wisper is designed to be easy to modify. Everything is in one file — `app.py` — with a clear configuration section at the top.
+Everything is in one file — `app.py` — with a clean configuration block at the top. No framework, no build step.
 
 **Add any Whisper model from HuggingFace**
 
-Find the `MODELS` list near the top of `app.py` and add a line:
+Find the `MODELS` list near the top of `app.py`:
 
 ```python
 MODELS = [
@@ -248,27 +204,22 @@ MODELS = [
 ]
 ```
 
-Any `mlx-community` Whisper model on HuggingFace works. The app will offer it in the Settings panel and download it on demand.
+Any `mlx-community` Whisper model on HuggingFace works. It appears in the Settings panel and downloads on demand.
 
 **Switch to a different language**
 
-Find `language="en"` inside the `WORKER_SCRIPT` block (~line 140) and change it:
+Find `language="en"` in the `WORKER_SCRIPT` block (~line 140) and change it:
 
 ```python
-# French
-language="fr"
-
-# Auto-detect (any language, adds ~0.4s per recording)
-# remove the language= argument entirely
+language="fr"      # French
+language="de"      # German
+language="ar"      # Arabic
+# remove it entirely for auto-detect (adds ~0.4s per recording)
 ```
 
-**Change the default hotkey in code**
+**Change the default hotkey**
 
-The default hotkey on first launch is set by `DEFAULT_HOTKEY_KEYCODE` and `DEFAULT_HOTKEY_FLAGS` at the top of `app.py`. Existing users can always change their hotkey without touching code via History panel → Settings → Hotkey.
-
-**Everything else**
-
-The app is ~1600 lines of straightforward Python. No framework, no abstraction layers. Read it top to bottom in 20 minutes and change whatever you want.
+The default hotkey on first launch is set by `DEFAULT_HOTKEY_KEYCODE` and `DEFAULT_HOTKEY_FLAGS` at the top of `app.py`. Existing users can change their hotkey without touching code via History → Settings → Hotkey.
 
 ---
 
@@ -279,7 +230,7 @@ All data lives in `~/.open-wisper/`:
 | File | Contents |
 |------|----------|
 | `history.db` | SQLite database of all transcriptions and settings |
-| `app.log` | Application logs (useful for debugging) |
+| `app.log` | Application logs |
 
 Model weights are cached in `~/.cache/huggingface/` by HuggingFace Hub.
 
@@ -290,60 +241,57 @@ To fully reset: `rm -rf ~/.open-wisper/`
 ## Troubleshooting
 
 **Icon shows ⏳ and stays there**
-→ The model is loading. Wait 5–15 seconds. If it stays for more than 30 seconds, check `~/.open-wisper/app.log` for errors.
+→ Model is loading — wait 5–15 seconds on first launch. If it stays longer, check `~/.open-wisper/app.log`.
 
 **Hotkey does nothing**
-→ Accessibility permission is missing. Open System Settings → Privacy & Security → Accessibility → add and enable Python (or OpenWisper.app).
+→ Accessibility permission is missing. System Settings → Privacy & Security → Accessibility → add and enable Python (or OpenWisper.app).
 
 **Text not auto-pasting**
-→ Accessibility permission is missing. Go to System Settings → Privacy & Security → Accessibility and enable Python (or OpenWisper.app). Without it, transcriptions are still copied to your clipboard — just press Cmd+V manually.
+→ Same. Without Accessibility, text is still copied to your clipboard — press Cmd+V manually.
 
-**App keeps asking for Accessibility on every launch**
-→ Accessibility permission is tied to the app's code signature. It resets every time you run `make rebuild`. Solution: use `python3 app.py` for day-to-day use — grant permission once for Python and it never resets. Only rebuild the bundle when distributing.
+**App keeps asking for Accessibility permission**
+→ Happens when you run `make rebuild` — each new bundle gets a new identity. Fix: use `python3 app.py` for day-to-day use. Grant permission once for Python and it never resets. Only rebuild the bundle when distributing.
 
-**Recording cuts out or sounds wrong**
-→ Try a different microphone in History panel → Settings → Microphone.
+**Recording sounds wrong or cuts out**
+→ Try a different microphone in History → Settings → Microphone.
 
 **Transcription is inaccurate**
-→ Try a larger model. If you're using Tiny, switch to Distil Large V3.
+→ Switch to a larger model. If you're on Tiny, try Distil Large V3.
 
-**Model download fails or is slow**
-→ Check `~/.open-wisper/app.log`. Run `python3 app.py` in Terminal to see live output.
+**Model download fails**
+→ Check your connection and relaunch. Check `~/.open-wisper/app.log` for details.
 
-**Setup wizard doesn't appear on launch**
-→ The wizard only shows on first launch. To reset: `rm -rf ~/.open-wisper/ && python3 app.py`
+**Wizard doesn't appear on relaunch**
+→ It only shows on first launch. To reset: `rm -rf ~/.open-wisper/ && python3 app.py`
 
 ---
 
 ## Building a standalone .app (optional)
 
-If you want to double-click to launch instead of using Terminal:
-
 ```bash
-make install-bundle   # installs py2app (one-time)
+make install-bundle   # installs py2app — one-time
 make rebuild          # builds dist/OpenWisper.app
 open dist/OpenWisper.app
 ```
 
-After rebuilding, re-grant Accessibility permission in System Settings — the bundle identity changes with each build.
+After each rebuild, re-grant Accessibility permission — the bundle identity changes with every build. For daily use, `python3 app.py` is simpler.
 
 ---
 
 ## Project structure
 
 ```
-app.py           — the entire application (~1600 lines)
-install.sh       — one-command setup for new users
+app.py           — the entire application (~1600 lines of Python)
+install.sh       — one-command setup script for new users
 setup.py         — py2app config for building the .app bundle
-Makefile         — install / build / dev shortcuts
+Makefile         — shortcuts: make dev, make build, make rebuild
 requirements.txt — Python dependencies
+assets/          — banner and other static assets
 LICENSE
 ```
-
-Everything is in `app.py`. No framework, no build step to run the script. Read it top to bottom in 20 minutes.
 
 ---
 
 ## License
 
-MIT
+MIT — do whatever you want with it.
