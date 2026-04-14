@@ -4,7 +4,7 @@
   <br/>
   <br/>
 
-  <a href="https://github.com/YOUR_USERNAME/open-wisper/blob/main/LICENSE">
+  <a href="https://github.com/AbubakrChan/open-wisper/blob/main/LICENSE">
     <img src="https://img.shields.io/badge/license-MIT-22c55e?style=flat-square" alt="MIT License"/>
   </a>
   <img src="https://img.shields.io/badge/macOS-12%2B-lightgrey?style=flat-square&logo=apple&logoColor=white" alt="macOS 12+"/>
@@ -87,7 +87,7 @@ The only network request the app ever makes is the one-time model download from 
 ### Step 1 — Clone and install
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/open-wisper.git
+git clone https://github.com/AbubakrChan/open-wisper.git
 cd open-wisper
 bash install.sh
 ```

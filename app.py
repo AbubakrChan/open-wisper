@@ -501,6 +501,7 @@ class HistoryPanel:
         self.window = None
         self.webview = None
         self._handler = None
+        self._delegate = None
         self.on_model_change = None
         self.on_hotkey_record = None   # set by VoiceApp
         self._current_hotkey_name = hotkey_display_name(DEFAULT_HOTKEY_KEYCODE, DEFAULT_HOTKEY_FLAGS)
@@ -529,6 +530,9 @@ class HistoryPanel:
         self.window.setMinSize_(NSMakeRect(0, 0, 360, 400).size)
         self.window.setTitlebarAppearsTransparent_(True)
         self.window.setBackgroundColor_(None)
+        self.window.setHidesOnDeactivate_(True)
+        self._delegate = _HistoryWindowDelegate.alloc().initWithWindow_(self.window)
+        self.window.setDelegate_(self._delegate)
 
         config = WKWebViewConfiguration.alloc().init()
         self._handler = ScriptMessageHandler.alloc().initWithCallback_(self._on_message)
@@ -905,6 +909,19 @@ class _WizardWindowDelegate(NSObject, protocols=[NSWindowDelegateProto]):
 
     def windowWillClose_(self, notification):
         self._wizard._finish()
+
+
+class _HistoryWindowDelegate(NSObject, protocols=[NSWindowDelegateProto]):
+    """Hides the History panel whenever it loses key focus (click-away or space switch)."""
+
+    def initWithWindow_(self, window):
+        self = objc.super(_HistoryWindowDelegate, self).init()
+        if self:
+            self._window = window
+        return self
+
+    def windowDidResignKey_(self, notification):
+        self._window.orderOut_(None)
 
 
 class SetupWizard:
