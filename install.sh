@@ -72,6 +72,19 @@ echo "Installing Python packages (first time takes ~30 seconds)..."
 pip3 install --user -r "$INSTALL_DIR/requirements.txt" -q
 echo "✓  Python packages"
 
+# ── Launcher command ───────────────────────────────────────────────────────────
+
+LAUNCHER="/usr/local/bin/open-wisper"
+if [ -w "/usr/local/bin" ] || mkdir -p "/usr/local/bin" 2>/dev/null; then
+  cat > "$LAUNCHER" << 'EOF'
+#!/bin/bash
+nohup python3 "$HOME/Applications/OpenWisper/app.py" >/dev/null 2>&1 &
+disown
+EOF
+  chmod +x "$LAUNCHER"
+  echo "✓  Launcher → type 'open-wisper' in Terminal to start"
+fi
+
 # ── Launch ─────────────────────────────────────────────────────────────────────
 
 echo ""
@@ -84,8 +97,9 @@ echo "A setup wizard will walk you through two quick steps:"
 echo "  1. Download the AI model (~750 MB, one time)"
 echo "  2. Grant microphone + accessibility access"
 echo ""
-echo "After that, press Fn+R anywhere to start recording."
+echo "After that, press your hotkey anywhere to start recording."
 echo ""
 echo "To launch Open Wisper in the future:"
-echo "  python3 ~/Applications/OpenWisper/app.py"
+echo "  • Type 'open-wisper' in Terminal"
+echo "  • Or enable 'At Login' in Settings to auto-start with your Mac"
 echo ""

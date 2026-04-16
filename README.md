@@ -21,7 +21,7 @@
     Open Wisper does exactly that.
   </p>
 
-  <strong>No subscription. No cloud. No clipboard pollution. Just your voice, pasted.</strong>
+  <strong>No subscription. No cloud. Highly customizable. Just your voice, pasted.</strong>
 
 </div>
 
@@ -29,7 +29,7 @@
 
 ## What it does
 
-Press **Fn+R** → speak → press **Fn+R** again.
+Press your hotkey → speak → press it again. (**Fn+R** by default — set your own in Settings.)
 
 Your words appear in whatever app you were using, as if you typed them. The full pipeline — recording, transcription, paste — completes in ~1 second. Everything runs locally on your Mac. Nothing is sent anywhere.
 
@@ -39,22 +39,22 @@ Your words appear in whatever app you were using, as if you typed them. The full
 
 | | |
 |---|---|
-| **Global hotkey** | Fn+R toggles recording from any app — customizable in Settings |
+| **Custom hotkey** | Set any key combo in Settings — Fn+R by default |
 | **Auto-paste** | Text is pasted directly into your active window. No Cmd+V needed |
 | **Clipboard-safe** | Your clipboard is preserved. Old content is restored within 300ms |
 | **100% local** | Audio never leaves your Mac. No account, no API key, no internet after setup |
-| **Custom hotkey** | Change the trigger key from Settings — no code editing needed |
-| **Model selection** | 4 models: trade off speed, RAM, and accuracy |
+| **Bring your own model** | Plug in any Whisper model from HuggingFace — appears in Settings instantly |
+| **Language selection** | 16 languages + auto-detect, switchable in Settings |
 | **Microphone selection** | Built-in mic, AirPods, USB interface — switch any time |
 | **Transcription history** | Every recording saved to a local SQLite database |
 | **Filter by app** | Transcriptions grouped by which app was active when you recorded |
 | **Export** | Save full history as `.md` or `.txt` in one click |
 | **Launch at login** | Start automatically with macOS — toggle in Settings |
 | **Apple Silicon optimized** | Uses MLX, Apple's own ML framework for on-device inference |
-| **Model stays in RAM** | Loaded once at startup, kept warm. No cold-start delay per recording |
+| **Model stays warm** | Loaded once at startup, kept in memory. No cold-start delay per recording |
 | **Menu bar app** | Lives in your menu bar. No dock icon, no window clutter |
 | **Sound feedback** | Audio cues for start, stop, and transcription complete |
-| **Open source** | ~1600 lines of Python. Read it, fork it, change anything |
+| **Highly customizable** | ~1600 lines of Python, one file. Read it, fork it, change anything |
 
 ---
 
@@ -96,7 +96,9 @@ The script installs all dependencies and opens Open Wisper automatically. A **se
 
 The 🎤 icon appears in your menu bar. You're done.
 
-**To re-launch Open Wisper in the future:**
+**To have Open Wisper start automatically:** enable **Settings → At Login** after setup. That's the easiest option — you never think about launching it again.
+
+**To launch manually:**
 
 ```bash
 python3 ~/Applications/OpenWisper/app.py
@@ -126,22 +128,22 @@ Menu bar icon states: 🎤 ready · 🔴 recording · ⏳ loading / transcribing
 
 ## Models
 
-| Model | RAM | Speed | Languages |
-|-------|-----|-------|-----------|
-| **Distil Large V3** ← default | ~1.4 GB | fastest | English only |
-| **Turbo Q8** | ~880 MB | fast | English + multilingual |
-| **Large V3 Turbo** | ~1.6 GB | fast | All languages |
-| **Tiny** | ~100 MB | ultra fast | All (lower accuracy) |
+| Model | Speed | Languages |
+|-------|-------|-----------|
+| **Distil Large V3** ← default | fastest | English |
+| **Turbo Q8** | fast | Multilingual |
+| **Large V3 Turbo** | fast | All languages |
+| **Tiny** | ultra fast | All (lower accuracy) |
 
-**Distil Large V3** is the default and recommended for most people. It skips language detection entirely — that single optimization saves ~0.4s on every recording and is why the pipeline hits ~1s. If you primarily speak English, use this.
+**Distil Large V3** is the default — fastest for English, ~1s total pipeline.
 
-**Turbo Q8** saves ~560 MB of RAM at a ~15% speed cost. Useful if you have 8 GB RAM and run memory-heavy apps alongside this one.
+**Large V3 Turbo** and **Turbo Q8** handle multilingual input. Switch to one of these if you speak a non-English language.
 
-**Large V3 Turbo** runs language detection, then transcribes in whatever language you spoke. Use this if you switch between languages or speak a non-English language.
+**Tiny** works on any language with minimal resource usage. Accuracy is lower on technical terms and proper nouns.
 
-**Tiny** is for extremely RAM-constrained situations. Expect noticeably more errors on proper nouns and technical terms.
+Change models any time in Settings — no restart needed.
 
-Change models any time in the Settings panel — no restart needed.
+**Bring your own model** — any Whisper model from `mlx-community` on HuggingFace works. Add it to the `MODELS` list in `app.py` and it appears in Settings immediately.
 
 ---
 
@@ -165,16 +167,19 @@ Whisper is accurate but not inherently fast. Getting to ~1s on an everyday Mac t
 
 ---
 
-## Customization
+## Built for customization
 
-Most settings are in the **History panel** — no code editing needed:
+Open Wisper is designed to be yours. Every common setting lives in the **Settings panel** — no code editing required for any of it:
 
-| Setting | Where |
-|---------|-------|
-| Hotkey | History → Settings → Hotkey → Record |
-| Model | History → Settings → Model |
-| Language | History → Settings → Language |
-| Microphone | History → Settings → Microphone |
+| What | Where |
+|------|-------|
+| Hotkey | Settings → Hotkey → Record (press any combo) |
+| Model | Settings → Model |
+| Language | Settings → Language |
+| Microphone | Settings → Microphone |
+| Launch at login | Settings → At Login |
+
+Want to go deeper? The entire app is ~1600 lines of Python in one file (`app.py`) with a clear configuration block at the top. Fork it, read it, make it yours.
 
 **Add any Whisper model from HuggingFace**
 
@@ -184,15 +189,14 @@ Find the `MODELS` list near the top of `app.py` and add a line:
 MODELS = [
     ("mlx-community/distil-whisper-large-v3", "Distil Large V3 — fastest, English"),
     ("your-org/your-model",                   "My custom model"),  # ← add here
-    ...
 ]
 ```
 
-Any `mlx-community` Whisper model on HuggingFace works. It appears in the Settings panel immediately and downloads on demand.
+Any `mlx-community` Whisper model on HuggingFace works. It appears in Settings immediately and downloads on demand.
 
-**Change the default hotkey (for first-launch)**
+**Change the default hotkey**
 
-The default hotkey is `DEFAULT_HOTKEY_KEYCODE` and `DEFAULT_HOTKEY_FLAGS` at the top of `app.py`. Users can always change it without code via Settings → Hotkey.
+Set `DEFAULT_HOTKEY_KEYCODE` and `DEFAULT_HOTKEY_FLAGS` at the top of `app.py` to change what hotkey new users get on first launch. Existing users can always change it without touching code via Settings → Hotkey.
 
 ---
 

@@ -91,10 +91,10 @@ DEFAULT_MODEL = "mlx-community/distil-whisper-large-v3"
 # Models shown in the Settings panel. Add any mlx-community Whisper model here.
 # Format: ("huggingface-repo-id", "Display name shown in UI")
 MODELS = [
-    ("mlx-community/distil-whisper-large-v3",       "Distil Large V3 — fastest, uses ~1.4 GB RAM (default)"),
-    ("LibraxisAI/whisper-large-v3-turbo-mlx-q8",    "Turbo Q8 — 15% slower, uses ~880 MB RAM (save ~560 MB)"),
-    ("mlx-community/whisper-large-v3-turbo",         "Large V3 Turbo — multilingual, uses ~1.6 GB RAM"),
-    ("mlx-community/whisper-tiny",                   "Tiny — ultra fast, uses ~100 MB RAM (lower quality)"),
+    ("mlx-community/distil-whisper-large-v3",       "Distil Large V3 — fastest, English (default)"),
+    ("LibraxisAI/whisper-large-v3-turbo-mlx-q8",    "Turbo Q8 — fast, multilingual"),
+    ("mlx-community/whisper-large-v3-turbo",         "Large V3 Turbo — multilingual"),
+    ("mlx-community/whisper-tiny",                   "Tiny — ultra fast, lower accuracy"),
 ]
 
 # Languages shown in the Settings panel.
