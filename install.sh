@@ -74,8 +74,16 @@ echo "✓  Python packages"
 
 # ── Launcher command ───────────────────────────────────────────────────────────
 
-LAUNCHER="/usr/local/bin/open-wisper"
-if [ -w "/usr/local/bin" ] || mkdir -p "/usr/local/bin" 2>/dev/null; then
+# Try /opt/homebrew/bin (user-owned on Apple Silicon), then ~/.local/bin
+LAUNCHER=""
+for dir in "/opt/homebrew/bin" "$HOME/.local/bin"; do
+  if mkdir -p "$dir" 2>/dev/null && [ -w "$dir" ]; then
+    LAUNCHER="$dir/open-wisper"
+    break
+  fi
+done
+
+if [ -n "$LAUNCHER" ]; then
   cat > "$LAUNCHER" << 'EOF'
 #!/bin/bash
 nohup python3 "$HOME/Applications/OpenWisper/app.py" >/dev/null 2>&1 &
@@ -83,6 +91,8 @@ disown
 EOF
   chmod +x "$LAUNCHER"
   echo "✓  Launcher → type 'open-wisper' in Terminal to start"
+else
+  echo "  (Skipped launcher — run: python3 ~/Applications/OpenWisper/app.py)"
 fi
 
 # ── Launch ─────────────────────────────────────────────────────────────────────
