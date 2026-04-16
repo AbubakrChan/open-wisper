@@ -1329,6 +1329,12 @@ class VoiceApp(rumps.App):
         self._build_menu()
         if BACKEND_MODE:
             self._setup_file_watcher()
+            # Write current hotkey to file for Swift
+            try:
+                with open(HOTKEY_FILE, 'w') as f:
+                    f.write(f"{self._hotkey_keycode},{self._hotkey_flags}")
+            except Exception:
+                pass
         else:
             self._setup_hotkey()
         history_panel.on_model_change = self._change_model
@@ -1473,6 +1479,60 @@ class VoiceApp(rumps.App):
         self._recording_hotkey = recording
         log.info(f"hotkey: recording_mode={'on' if recording else 'off'}")
 
+        # In backend mode, create/destroy a temporary event tap for recording
+        if BACKEND_MODE:
+            if recording:
+                self._create_temp_hotkey_tap()
+            else:
+                self._destroy_temp_hotkey_tap()
+
+    def _create_temp_hotkey_tap(self):
+        """Create a temporary event tap for recording a new hotkey (backend mode only)."""
+        if hasattr(self, '_temp_event_tap') and self._temp_event_tap:
+            return  # Already exists
+
+        def temp_callback(proxy, event_type, event, refcon):
+            try:
+                keycode = CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode)
+                flags = CGEventGetFlags(event)
+                # Ignore bare modifier keypresses; wait for a real key
+                if keycode not in _MODIFIER_KEYCODES:
+                    useful_flags = flags & (0x800000 | 0x100000 | 0x80000 | 0x40000 | 0x20000)
+                    if useful_flags:
+                        self._apply_new_hotkey(keycode, useful_flags)
+                        self._destroy_temp_hotkey_tap()
+                return None  # suppress all keypresses while recording
+            except Exception as e:
+                log.error(f"hotkey: temp callback error: {e}")
+            return event
+
+        tap = CGEventTapCreate(
+            kCGSessionEventTap,
+            kCGHeadInsertEventTap,
+            0,
+            (1 << kCGEventKeyDown),
+            temp_callback,
+            None
+        )
+        if tap:
+            source = CFMachPortCreateRunLoopSource(None, tap, 0)
+            CFRunLoopAddSource(CFRunLoopGetMain(), source, kCFRunLoopCommonModes)
+            CGEventTapEnable(tap, True)
+            self._temp_event_tap = tap
+            self._temp_tap_source = source
+            log.info("hotkey: temporary event tap created for recording")
+        else:
+            log.warning("hotkey: failed to create temp event tap")
+
+    def _destroy_temp_hotkey_tap(self):
+        """Destroy the temporary event tap."""
+        if hasattr(self, '_temp_event_tap') and self._temp_event_tap:
+            CGEventTapEnable(self._temp_event_tap, False)
+            # Note: We can't easily remove from run loop, but disabling is enough
+            self._temp_event_tap = None
+            self._temp_tap_source = None
+            log.info("hotkey: temporary event tap destroyed")
+
     def _apply_new_hotkey(self, keycode: int, flags: int):
         """Save a newly recorded hotkey and update the Settings panel display."""
         self._recording_hotkey = False
@@ -1483,6 +1543,16 @@ class VoiceApp(rumps.App):
         name = hotkey_display_name(keycode, flags)
         history_panel._current_hotkey_name = name
         log.info(f"hotkey: saved new hotkey: {name}")
+
+        # In backend mode, notify Swift of the new hotkey
+        if BACKEND_MODE:
+            try:
+                with open(HOTKEY_FILE, 'w') as f:
+                    f.write(f"{keycode},{flags}")
+                log.info(f"backend: wrote hotkey to file: {keycode},{flags}")
+            except Exception as e:
+                log.error(f"backend: failed to write hotkey: {e}")
+
         # Push update to open Settings panel (runs on main thread via queue)
         self._main_thread_queue.put(
             lambda: history_panel.eval_js(f"setHotkey({name!r})") if history_panel.webview else None
@@ -1916,6 +1986,7 @@ BACKEND_MODE = False
 TRIGGER_FILE = "/tmp/openwisper-trigger"
 RESULT_FILE = "/tmp/openwisper-result"
 STATUS_FILE = "/tmp/openwisper-status"
+HOTKEY_FILE = "/tmp/openwisper-hotkey"
 
 def signal_paste():
     """Signal the Swift launcher to perform paste (backend mode only)."""

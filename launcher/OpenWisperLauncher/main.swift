@@ -5,6 +5,11 @@ import Carbon
 let triggerFile = "/tmp/openwisper-trigger"
 let resultFile = "/tmp/openwisper-result"
 let statusFile = "/tmp/openwisper-status"
+let hotkeyFile = "/tmp/openwisper-hotkey"
+
+// Default hotkey: Fn+R (keycode 15, Fn flag 0x800000)
+let defaultKeycode: Int64 = 15
+let defaultFlags: UInt64 = 0x800000
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     var statusItem: NSStatusItem!
@@ -13,6 +18,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var isRecording = false
     var isReady = false
     var accessibilityCheckTimer: Timer?
+
+    // Current hotkey (can be changed via Settings)
+    var hotkeyKeycode: Int64 = defaultKeycode
+    var hotkeyFlags: UInt64 = defaultFlags
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupMenuBar()
@@ -41,11 +50,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func showAccessibilityWizard() {
-        // Create a friendly alert
         let alert = NSAlert()
         alert.messageText = "One Quick Step"
         alert.informativeText = """
-        Open Wisper needs Accessibility permission to use the global hotkey (Fn+R).
+        Open Wisper needs Accessibility permission to use the global hotkey.
 
         Click "Open Settings" and then:
         1. Find "Open Wisper" in the list
@@ -57,7 +65,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         alert.addButton(withTitle: "Open Settings")
         alert.addButton(withTitle: "Quit")
 
-        // Add an icon
         if let appIcon = NSImage(named: NSImage.applicationIconName) {
             alert.icon = appIcon
         }
@@ -65,7 +72,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let response = alert.runModal()
 
         if response == .alertFirstButtonReturn {
-            // Open System Settings to Accessibility
             openAccessibilitySettings()
             startAccessibilityPolling()
         } else {
@@ -74,12 +80,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func openAccessibilitySettings() {
-        // Request permission (this adds the app to the list)
         AXIsProcessTrustedWithOptions(
             [kAXTrustedCheckOptionPrompt.takeUnretainedValue(): true] as CFDictionary
         )
 
-        // Open System Settings directly to Accessibility pane
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
             NSWorkspace.shared.open(url)
         }
@@ -88,13 +92,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func startAccessibilityPolling() {
         statusItem.button?.title = "⏳"
 
-        // Poll every 500ms to check if permission was granted
         accessibilityCheckTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] timer in
             if self?.checkAccessibility() == true {
                 timer.invalidate()
                 self?.accessibilityCheckTimer = nil
 
-                // Show success notification
                 DispatchQueue.main.async {
                     self?.showSuccessAndStart()
                 }
@@ -107,16 +109,30 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func startApp() {
-        // Clear status file
         try? "loading".write(toFile: statusFile, atomically: true, encoding: .utf8)
 
+        loadHotkey()
         setupHotkey()
         startPythonBackend()
         watchResultFile()
         watchStatusFile()
+        watchHotkeyFile()
 
-        // Keep showing ⏳ until Python signals ready
         statusItem.button?.title = "⏳"
+    }
+
+    func loadHotkey() {
+        // Read hotkey from file (written by Python)
+        guard let content = try? String(contentsOfFile: hotkeyFile, encoding: .utf8) else {
+            return
+        }
+        let parts = content.trimmingCharacters(in: .whitespacesAndNewlines).split(separator: ",")
+        if parts.count == 2,
+           let keycode = Int64(parts[0]),
+           let flags = UInt64(parts[1]) {
+            hotkeyKeycode = keycode
+            hotkeyFlags = flags
+        }
     }
 
     func setupHotkey() {
@@ -128,14 +144,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             options: .defaultTap,
             eventsOfInterest: CGEventMask(eventMask),
             callback: { (proxy, type, event, refcon) -> Unmanaged<CGEvent>? in
+                let delegate = Unmanaged<AppDelegate>.fromOpaque(refcon!).takeUnretainedValue()
                 let keycode = event.getIntegerValueField(.keyboardEventKeycode)
-                let flags = event.flags
+                let flags = event.flags.rawValue
 
-                // Fn+R: keycode 15 with Fn flag
-                if keycode == 15 && flags.contains(.maskSecondaryFn) {
-                    let delegate = Unmanaged<AppDelegate>.fromOpaque(refcon!).takeUnretainedValue()
+                // Check if pressed key matches configured hotkey
+                if keycode == delegate.hotkeyKeycode && (flags & delegate.hotkeyFlags) == delegate.hotkeyFlags {
                     delegate.toggleRecording()
-                    return nil // Consume the event
+                    return nil
                 }
                 return Unmanaged.passRetained(event)
             },
@@ -150,9 +166,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func toggleRecording() {
-        // Don't allow recording until Python backend is ready
         if !isReady {
-            // Show notification that we're still loading
             DispatchQueue.main.async {
                 let notification = NSUserNotification()
                 notification.title = "Open Wisper"
@@ -172,7 +186,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func startPythonBackend() {
-        // Find Python - try multiple paths
         let pythonPaths = [
             "/opt/homebrew/bin/python3.13",
             "/opt/homebrew/bin/python3.12",
@@ -207,8 +220,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         pythonProcess?.executableURL = URL(fileURLWithPath: python)
         pythonProcess?.arguments = [scriptPath, "--backend-mode"]
         pythonProcess?.currentDirectoryURL = scriptDir
-
-        // Suppress output
         pythonProcess?.standardOutput = FileHandle.nullDevice
         pythonProcess?.standardError = FileHandle.nullDevice
 
@@ -233,7 +244,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func watchStatusFile() {
-        // Poll status file to know when Python backend is ready
         Timer.scheduledTimer(withTimeInterval: 0.3, repeats: true) { [weak self] timer in
             guard let content = try? String(contentsOfFile: statusFile, encoding: .utf8) else {
                 return
@@ -246,7 +256,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 DispatchQueue.main.async {
                     self?.statusItem.button?.title = "🎤"
 
-                    // Show ready notification
                     let notification = NSUserNotification()
                     notification.title = "Open Wisper"
                     notification.informativeText = "Ready! Press Fn+R to record."
@@ -254,6 +263,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 }
                 timer.invalidate()
             }
+        }
+    }
+
+    func watchHotkeyFile() {
+        // Watch for hotkey changes from Python Settings
+        Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            self?.loadHotkey()
         }
     }
 
