@@ -83,28 +83,36 @@ The only network request the app ever makes is the one-time model download from 
 
 ## Getting started
 
-**One command installs everything and launches the app:**
+**One command installs everything:**
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/AbubakrChan/open-wisper/main/install.sh | bash
 ```
 
-The script installs all dependencies and opens Open Wisper automatically. A **setup wizard** then walks you through two steps:
+### What happens
 
-1. **Download the AI model** — ~750 MB, one time only. Cached forever after.
-2. **Grant permissions** — Microphone (one click) and Accessibility (for auto-paste).
+1. **Dependencies install** — Homebrew, Python, and required packages (automatic)
+2. **App launches** — Open Wisper opens with a simple permission dialog
+3. **One toggle** — Click "Open Settings", find "Open Wisper" in the list, toggle it **ON**
+4. **Done** — The app auto-detects when you've enabled it and starts working
 
-The 🎤 icon appears in your menu bar. You're done.
+That's it. The 🎤 icon appears in your menu bar. Press **Fn+R** to record.
 
-**To have Open Wisper start automatically:** enable **Settings → At Login** after setup. That's the easiest option — you never think about launching it again.
+### First recording
 
-**To launch manually:**
+On your first recording, the AI model downloads (~750 MB). This takes 30–60 seconds depending on your connection. After that, it's cached forever and works offline.
+
+### Launch at login
+
+Enable **Settings → At Login** to have Open Wisper start automatically with your Mac. You'll never think about launching it again.
+
+### Manual launch
 
 ```bash
-python3 ~/Applications/OpenWisper/app.py
+open-wisper
 ```
 
-> **Accessibility permission** — macOS requires this to be granted manually. The wizard opens System Settings to the right page. Click **+**, select **Python**, and toggle it **ON**. Without it, the app still works — text is copied to your clipboard and you press Cmd+V.
+Or double-click `~/Applications/OpenWisper.app`.
 
 ---
 
@@ -221,13 +229,13 @@ To fully reset: `rm -rf ~/.open-wisper/`
 → Model is loading — wait 5–15 seconds on first launch. If it stays longer, check `~/.open-wisper/app.log`.
 
 **Hotkey does nothing**
-→ Accessibility permission is missing. System Settings → Privacy & Security → Accessibility → add and enable Python (or OpenWisper.app).
+→ Accessibility permission is missing. System Settings → Privacy & Security → Accessibility → find "Open Wisper" and toggle it **ON**.
 
 **Text not auto-pasting**
-→ Same. Without Accessibility, text is still copied to your clipboard — press Cmd+V manually.
+→ Same as above. Without Accessibility, text is copied to your clipboard — press Cmd+V manually.
 
-**App keeps asking for Accessibility permission**
-→ Happens when you run `make rebuild` — each new bundle gets a new identity. Fix: use `python3 app.py` for day-to-day use. Grant permission once for Python and it never resets. Only rebuild the bundle when distributing.
+**"Open Wisper" not in Accessibility list**
+→ Relaunch the app. It will prompt you to add it.
 
 **Recording sounds wrong or cuts out**
 → Try a different microphone in History → Settings → Microphone.
@@ -238,34 +246,53 @@ To fully reset: `rm -rf ~/.open-wisper/`
 **Model download fails**
 → Check your connection and relaunch. Check `~/.open-wisper/app.log` for details.
 
-**Wizard doesn't appear on relaunch**
-→ It only shows on first launch. To reset: `rm -rf ~/.open-wisper/ && python3 app.py`
-
 ---
 
-## Building a standalone .app (optional)
+## Architecture
 
-```bash
-make install-bundle   # installs py2app — one-time
-make rebuild          # builds dist/OpenWisper.app
-open dist/OpenWisper.app
+Open Wisper uses a two-process architecture for a seamless permission experience:
+
+```
+OpenWisper.app (Swift)          Python backend
+┌─────────────────────┐         ┌─────────────────────┐
+│ • Global hotkey     │ ──IPC── │ • Audio recording   │
+│ • Paste simulation  │         │ • Whisper inference │
+│ • Menu bar icon     │         │ • History database  │
+│ • Accessibility UI  │         │ • Settings panel    │
+└─────────────────────┘         └─────────────────────┘
 ```
 
-After each rebuild, re-grant Accessibility permission — the bundle identity changes with every build. For daily use, `python3 app.py` is simpler.
+**Why?** macOS requires Accessibility permission for global hotkeys (CGEventTap). By handling the hotkey in a native Swift app, users grant permission to "Open Wisper" — not "Python", which is confusing and buried in a deep system path.
+
+The Python backend handles everything else: recording, transcription, history, and settings. The two processes communicate via simple file-based IPC.
 
 ---
 
 ## Project structure
 
 ```
-app.py           — the entire application (~1600 lines of Python)
-install.sh       — one-command setup script for new users
-setup.py         — py2app config for building the .app bundle
-Makefile         — shortcuts: make dev, make build, make rebuild
-requirements.txt — Python dependencies
-assets/          — banner and other static assets
+app.py              — Python backend (~1600 lines)
+OpenWisper.app/     — Pre-built Swift launcher for hotkey + paste
+launcher/           — Swift source code for the launcher
+install.sh          — One-command setup script
+requirements.txt    — Python dependencies
+assets/             — Banner and static assets
 LICENSE
 ```
+
+---
+
+## Building from source
+
+The Swift launcher is pre-built and included in the repo. If you want to modify it:
+
+```bash
+cd launcher
+swift build -c release
+./build.sh
+```
+
+This creates `OpenWisper.app`. Copy it to `~/Applications/` and re-grant Accessibility permission.
 
 ---
 

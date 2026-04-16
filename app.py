@@ -49,7 +49,7 @@ from AppKit import (
     NSApp, NSWorkspace,
 )
 from WebKit import WKWebView, WKWebViewConfiguration, WKUserContentController
-from Foundation import NSObject
+from Foundation import NSObject, NSURL
 import objc
 
 # ---------------------------------------------------------------------------
@@ -178,7 +178,8 @@ for line in sys.stdin:
             wav_path,
             path_or_hf_repo=model,
             language=language,
-            verbose=False
+            verbose=False,
+            condition_on_previous_text=False,
         )
         text = result.get("text", "").strip()
         elapsed = time.time() - t0
@@ -557,7 +558,7 @@ class HistoryPanel:
         html = self._render(rows, status)
 
         if self.window and self.window.isVisible():
-            self.webview.loadHTMLString_baseURL_(html, None)
+            self.webview.loadHTMLString_baseURL_(html, NSURL.URLWithString_("file:///"))
             self.window.makeKeyAndOrderFront_(None)
             NSApp.activateIgnoringOtherApps_(True)
             return
@@ -586,13 +587,13 @@ class HistoryPanel:
         self.webview.setAutoresizingMask_(0b010010)
         self.webview.setValue_forKey_(True, "drawsTransparentBackground")
         self.window.setContentView_(self.webview)
-        self.webview.loadHTMLString_baseURL_(html, None)
+        self.webview.loadHTMLString_baseURL_(html, NSURL.URLWithString_("file:///"))
 
         self.window.makeKeyAndOrderFront_(None)
         NSApp.activateIgnoringOtherApps_(True)
 
     def _on_message(self, body):
-        if not isinstance(body, dict):
+        if not hasattr(body, 'get'):
             return
         if body.get("type") == "export":
             fmt = body.get("format", "txt")
@@ -899,7 +900,7 @@ h1 { font-size: 20px; font-weight: 700; text-align: center; color: #3d3529; marg
       <div class="perm-icon">⌨️</div>
       <div class="perm-info">
         <div class="perm-title">Accessibility</div>
-        <div class="perm-hint">Click "Open Settings" → click <strong>+</strong> → select <strong>Python</strong> → toggle <strong>ON</strong></div>
+        <div class="perm-hint" id="ax-hint">Click "Open Settings" — the Python path will be copied to your clipboard automatically.</div>
       </div>
       <span class="perm-status" id="ax-status">⬜</span>
       <button class="perm-btn" id="ax-btn" onclick="send({type:\'check_ax\'})">Open Settings</button>
@@ -1025,19 +1026,24 @@ class SetupWizard:
             wv = self.webview
             self._js_queue.put(lambda: wv.evaluateJavaScript_completionHandler_(js, None))
 
+    def _js_direct(self, js):
+        """Call JS directly on main thread (use from _on_message only)."""
+        if self.webview:
+            self.webview.evaluateJavaScript_completionHandler_(js, None)
+
     def _on_message(self, body):
-        if not isinstance(body, dict):
+        if not hasattr(body, 'get'):
             return
         t = body.get("type")
         if t == "start":
-            self.eval_js("showStep(2)")
+            self._js_direct("showStep(2)")
             threading.Thread(target=self._do_download, daemon=True).start()
         elif t == "check_mic":
             threading.Thread(target=self._check_mic, daemon=True).start()
         elif t == "check_ax":
             threading.Thread(target=self._check_ax, daemon=True).start()
         elif t == "continue":
-            self.eval_js("showStep(4)")
+            self._js_direct("showStep(4)")
         elif t == "done":
             self._finish()
 
@@ -1106,13 +1112,23 @@ class SetupWizard:
                     pass
 
     def _check_ax(self):
-        """Open Accessibility System Settings and poll for up to 15s."""
+        """Open Accessibility System Settings, copy Python path to clipboard, and poll."""
+        py_app = _get_python_app_bundle()
+        if py_app:
+            try:
+                subprocess.run(['pbcopy'], input=py_app.encode(), capture_output=True)
+                hint = "Path copied to clipboard! In Accessibility: click + \u2192 press \u2318\u21e7G \u2192 paste \u2318V \u2192 Go \u2192 Open \u2192 toggle ON"
+            except Exception:
+                hint = "In Accessibility: click + \u2192 find Python \u2192 toggle ON"
+        else:
+            hint = "In Accessibility: click + \u2192 find Python \u2192 toggle ON"
+        self.eval_js(f"document.getElementById('ax-hint').textContent = {hint!r};")
         request_accessibility()
         subprocess.run(
             ['open', 'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility'],
             capture_output=True
         )
-        for _ in range(30):
+        for _ in range(60):  # 30 seconds
             time.sleep(0.5)
             if check_accessibility():
                 self.eval_js("setPermission('ax', 'ok')")
@@ -1170,6 +1186,25 @@ def check_accessibility():
 def request_accessibility():
     options = {"AXTrustedCheckOptionPrompt": True}
     return AXIsProcessTrustedWithOptions(options)
+
+def _get_python_app_bundle():
+    """Return the .app bundle containing the running Python binary, or None."""
+    # sys.executable may be a shim; use proc_pidpath to get the actual binary
+    try:
+        import ctypes, ctypes.util
+        libc = ctypes.CDLL(ctypes.util.find_library('c'))
+        buf = ctypes.create_string_buffer(4096)
+        if libc.proc_pidpath(os.getpid(), buf, 4096) > 0:
+            p = buf.value.decode()
+        else:
+            p = sys.executable
+    except Exception:
+        p = sys.executable
+    while p and p != '/':
+        if p.endswith('.app'):
+            return p
+        p = os.path.dirname(p)
+    return None
 
 def get_mic_devices():
     """Return list of (index_str, name) tuples for available audio input devices."""
@@ -1273,7 +1308,8 @@ def is_launch_at_login_enabled():
 class VoiceApp(rumps.App):
     def __init__(self):
         super().__init__("", quit_button=None)
-        self.title = "🎤"
+        self.title = None if BACKEND_MODE else "🎤"
+        self._status_hidden = False
         self.recording = False
         self.processing = False
         self.frames = []
@@ -1291,7 +1327,10 @@ class VoiceApp(rumps.App):
 
         self._setup_db()
         self._build_menu()
-        self._setup_hotkey()
+        if BACKEND_MODE:
+            self._setup_file_watcher()
+        else:
+            self._setup_hotkey()
         history_panel.on_model_change = self._change_model
         history_panel.on_hotkey_record = self._set_hotkey_recording
         history_panel._current_hotkey_name = hotkey_display_name(self._hotkey_keycode, self._hotkey_flags)
@@ -1312,6 +1351,19 @@ class VoiceApp(rumps.App):
                     log.error(f"main_thread_queue: callback raised: {e}")
         except queue.Empty:
             pass
+
+        # Hide status bar completely in backend mode (Swift handles it)
+        if BACKEND_MODE:
+            if not self._status_hidden:
+                try:
+                    # Remove the status item from menu bar
+                    from AppKit import NSStatusBar
+                    NSStatusBar.systemStatusBar().removeStatusItem_(self._nsapp.nsstatusitem)
+                    self._status_hidden = True
+                    log.info("backend: hidden menu bar icon")
+                except Exception as e:
+                    log.debug(f"backend: could not hide icon: {e}")
+            return
 
         if self.recording:
             expected = "🔴"
@@ -1381,6 +1433,35 @@ class VoiceApp(rumps.App):
             log.info(f"hotkey: {hotkey_display_name(self._hotkey_keycode, self._hotkey_flags)} registered")
         else:
             log.warning("hotkey: failed to create event tap (Accessibility permission needed)")
+
+    def _setup_file_watcher(self):
+        """Watch trigger file for start/stop commands from Swift launcher."""
+        # Create trigger file if it doesn't exist
+        Path(TRIGGER_FILE).touch(exist_ok=True)
+        Path(RESULT_FILE).touch(exist_ok=True)
+        log.info("backend: file watcher started")
+
+        def watch_loop():
+            last_content = ""
+            while True:
+                try:
+                    time.sleep(0.05)  # 50ms polling
+                    if not Path(TRIGGER_FILE).exists():
+                        continue
+                    with open(TRIGGER_FILE, 'r') as f:
+                        content = f.read().strip()
+                    if content and content != last_content:
+                        last_content = content
+                        log.info(f"backend: received command: {content}")
+                        if content == "start" and not self.recording:
+                            self._main_thread_queue.put(lambda: self._toggle(None))
+                        elif content == "stop" and self.recording:
+                            self._main_thread_queue.put(lambda: self._toggle(None))
+                except Exception as e:
+                    log.error(f"backend: watcher error: {e}")
+                    time.sleep(0.5)
+
+        threading.Thread(target=watch_loop, daemon=True).start()
 
     def _notify(self, title, subtitle="", message=""):
         """Send a rumps notification safely from any thread."""
@@ -1738,8 +1819,24 @@ class VoiceApp(rumps.App):
                 log.info(f"transcribe: accessibility={ax} before paste")
                 pasted = False
 
-                if ax:
-                    # Save old clipboard, paste transcription, restore clipboard after 300ms
+                if BACKEND_MODE:
+                    # Backend mode: copy to clipboard and signal Swift to paste
+                    t0 = time.time()
+                    old_clip = subprocess.run(['pbpaste'], capture_output=True, encoding='utf-8', errors='replace').stdout
+                    p = subprocess.Popen(['pbcopy'], stdin=subprocess.PIPE)
+                    p.communicate(text.encode('utf-8'))
+                    log.info(f"transcribe: clipboard set in {time.time()-t0:.3f}s")
+                    time.sleep(0.1)
+                    signal_paste()  # Swift will do the paste
+                    pasted = True
+                    def _restore(old=old_clip):
+                        time.sleep(0.3)
+                        p2 = subprocess.Popen(['pbcopy'], stdin=subprocess.PIPE)
+                        p2.communicate(old.encode('utf-8'))
+                        log.info("transcribe: clipboard restored")
+                    threading.Thread(target=_restore, daemon=True).start()
+                elif ax:
+                    # Has accessibility - do the paste ourselves
                     t0 = time.time()
                     old_clip = subprocess.run(['pbpaste'], capture_output=True, encoding='utf-8', errors='replace').stdout
                     p = subprocess.Popen(['pbcopy'], stdin=subprocess.PIPE)
@@ -1806,6 +1903,29 @@ class VoiceApp(rumps.App):
         conn.close()
         history_panel.show(rows, self._get_status())
 
+BACKEND_MODE = False
+TRIGGER_FILE = "/tmp/openwisper-trigger"
+RESULT_FILE = "/tmp/openwisper-result"
+
+def signal_paste():
+    """Signal the Swift launcher to perform paste (backend mode only)."""
+    if BACKEND_MODE:
+        try:
+            with open(RESULT_FILE, 'w') as f:
+                f.write("paste")
+            log.info("backend: signaled paste to Swift launcher")
+        except Exception as e:
+            log.error(f"backend: failed to signal paste: {e}")
+
 if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--backend-mode", action="store_true",
+                        help="Run as backend for Swift launcher (no hotkey, file-based IPC)")
+    args = parser.parse_args()
+    BACKEND_MODE = args.backend_mode
+
     log.info("=== APP LAUNCH ===")
+    if BACKEND_MODE:
+        log.info("backend: running in backend mode (Swift handles hotkey)")
     VoiceApp().run()

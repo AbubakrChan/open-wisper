@@ -5,7 +5,17 @@ dist/
 __pycache__/
 .DS_Store
 *.pyc
-*.app/
 mlx_models/
 .cache/
 docs/superpowers/
+
+# Old app bundles (not needed)
+VoiceTranscriber.app/
+VoiceType.app/
+
+# Swift build artifacts
+launcher/.build/
+launcher/OpenWisper.app/
+
+# Keep OpenWisper.app in repo root (pre-built for distribution)
+# !OpenWisper.app/
