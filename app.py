@@ -97,6 +97,28 @@ MODELS = [
     ("mlx-community/whisper-tiny",                   "Tiny — ultra fast, uses ~100 MB RAM (lower quality)"),
 ]
 
+# Languages shown in the Settings panel.
+# Use "auto" for automatic language detection (~0.4s slower per recording).
+# Note: Distil Large V3 is English-only; use Turbo or Tiny for other languages.
+LANGUAGES = [
+    ("en",  "English (recommended)"),
+    ("auto","Auto-detect (~0.4s slower)"),
+    ("es",  "Spanish"),
+    ("fr",  "French"),
+    ("de",  "German"),
+    ("it",  "Italian"),
+    ("pt",  "Portuguese"),
+    ("nl",  "Dutch"),
+    ("ru",  "Russian"),
+    ("zh",  "Chinese"),
+    ("ja",  "Japanese"),
+    ("ko",  "Korean"),
+    ("ar",  "Arabic"),
+    ("hi",  "Hindi"),
+    ("tr",  "Turkish"),
+    ("pl",  "Polish"),
+]
+
 # ---------------------------------------------------------------------------
 
 DATA_DIR = Path.home() / ".open-wisper"
@@ -140,15 +162,22 @@ print(json.dumps({"status": "ready", "import_time": round(import_time, 3), "mode
 
 # Process requests forever
 for line in sys.stdin:
-    wav_path = line.strip()
-    if not wav_path:
+    line = line.strip()
+    if not line:
         continue
+    try:
+        req = json.loads(line)
+        wav_path = req["path"]
+        language = req.get("language") or None  # None = auto-detect
+    except (json.JSONDecodeError, KeyError):
+        wav_path = line  # backward compat
+        language = "en"
     t0 = time.time()
     try:
         result = mlx_whisper.transcribe(
             wav_path,
             path_or_hf_repo=model,
-            language="en",
+            language=language,
             verbose=False
         )
         text = result.get("text", "").strip()
@@ -213,7 +242,11 @@ class TranscribeWorker:
             if not self._proc or self._proc.poll() is not None:
                 log.warning("worker: process dead, restarting")
                 self.start()
-            self._proc.stdin.write(wav_path + "\n")
+            language = get_setting("language", "en")
+            if language == "auto":
+                language = None
+            req = json.dumps({"path": wav_path, "language": language})
+            self._proc.stdin.write(req + "\n")
             self._proc.stdin.flush()
             line = self._proc.stdout.readline()
             if not line:
@@ -243,7 +276,7 @@ class TranscribeWorker:
                 wf.setframerate(16000)
                 wf.writeframes(samples)
             t0 = time.time()
-            self._proc.stdin.write(path + "\n")
+            self._proc.stdin.write(json.dumps({"path": path, "language": "en"}) + "\n")
             self._proc.stdin.flush()
             self._proc.stdout.readline()  # discard result
             os.unlink(path)
@@ -392,6 +425,12 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
       </select>
     </div>
     <div class="setting-row">
+      <span class="setting-label">Language</span>
+      <select class="setting-select" id="langSelect" onchange="changeLanguage(this.value)">
+        LANGUAGE_OPTIONS
+      </select>
+    </div>
+    <div class="setting-row">
       <span class="setting-label">Hotkey</span>
       <div style="display:flex;align-items:center;gap:8px">
         <span id="hotkeyDisplay" style="font-size:12px;color:#5a4e3c;font-family:monospace;background:#e8e0d0;padding:2px 7px;border-radius:4px">CURRENT_HOTKEY</span>
@@ -448,6 +487,9 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
     }
     function changeModel(model) {
       window.webkit.messageHandlers.action.postMessage({type: \'model\', model: model});
+    }
+    function changeLanguage(lang) {
+      window.webkit.messageHandlers.action.postMessage({type: \'language\', language: lang});
     }
     function changeMic(index) {
       window.webkit.messageHandlers.action.postMessage({type: \'mic\', index: index});
@@ -558,6 +600,10 @@ class HistoryPanel:
         elif body.get("type") == "model":
             if self.on_model_change:
                 self.on_model_change(body.get("model"))
+        elif body.get("type") == "language":
+            lang = body.get("language", "en")
+            set_setting("language", lang)
+            log.info(f"language: changed to {lang}")
         elif body.get("type") == "mic":
             index = body.get("index", "default")
             set_setting("mic_device_index", str(index))
@@ -629,6 +675,13 @@ class HistoryPanel:
             for repo, name in MODELS
         )
 
+        # Language options
+        saved_lang = get_setting("language", "en")
+        language_options = "\n".join(
+            f'<option value="{code}" {"selected" if code == saved_lang else ""}>{name}</option>'
+            for code, name in LANGUAGES
+        )
+
         # App filter options
         apps = sorted(set(row[2] for row in rows if len(row) > 2 and row[2]))
         app_options = "\n".join(f'<option value="{a}">{a}</option>' for a in apps)
@@ -682,6 +735,7 @@ class HistoryPanel:
                 .replace("MIC_OPTIONS", mic_options)
                 .replace("APP_OPTIONS", app_options)
                 .replace("MODEL_OPTIONS", model_options)
+                .replace("LANGUAGE_OPTIONS", language_options)
                 .replace("LAUNCH_AT_LOGIN_CHECKED", "checked" if is_launch_at_login_enabled() else "")
                 .replace("CURRENT_HOTKEY", history_panel._current_hotkey_name)
                 .replace("ENTRIES_HTML", entries_html))

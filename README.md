@@ -77,56 +77,32 @@ The only network request the app ever makes is the one-time model download from 
 
 - macOS 12 or later
 - Apple Silicon (M1 / M2 / M3 / M4)
-- Python 3.9+
-- Homebrew
+- Python 3.9+ and Homebrew (the installer handles both)
 
 ---
 
 ## Getting started
 
-### Step 1 — Clone and install
+**One command installs everything and launches the app:**
 
 ```bash
-git clone https://github.com/AbubakrChan/open-wisper.git
-cd open-wisper
-bash install.sh
+curl -fsSL https://raw.githubusercontent.com/AbubakrChan/open-wisper/main/install.sh | bash
 ```
 
-`install.sh` checks your system, installs PortAudio via Homebrew, and installs all Python dependencies. Takes about a minute.
+The script installs all dependencies and opens Open Wisper automatically. A **setup wizard** then walks you through two steps:
 
-### Step 2 — Launch
+1. **Download the AI model** — ~750 MB, one time only. Cached forever after.
+2. **Grant permissions** — Microphone (one click) and Accessibility (for auto-paste).
+
+The 🎤 icon appears in your menu bar. You're done.
+
+**To re-launch Open Wisper in the future:**
 
 ```bash
-python3 app.py
+python3 ~/Applications/OpenWisper/app.py
 ```
 
-A **setup wizard** appears automatically on first launch. It walks you through the two things needed before the app works.
-
-### Step 3 — Download the AI model
-
-The wizard downloads **Distil-Whisper Large v3** (~750 MB) with a live progress bar. This happens once. The model is cached and reused on every future launch — no internet needed after this.
-
-### Step 4 — Grant Microphone access
-
-The wizard prompts macOS to request microphone access. Click **Allow**.
-
-If you missed it: System Settings → Privacy & Security → Microphone → enable **Python**.
-
-### Step 5 — Grant Accessibility access
-
-This is what lets the app auto-paste into other apps. macOS requires this to be granted manually.
-
-The wizard opens System Settings to the right page. Then:
-
-1. Click **+** at the bottom of the Accessibility list
-2. Select `python3` (or `OpenWisper.app` if using the app bundle)
-3. Toggle it **ON**
-
-> Without Accessibility the app still works — transcriptions are saved and copied to your clipboard. Press Cmd+V manually.
-
-### Step 6 — You're ready
-
-The 🎤 icon appears in your menu bar. Model loads in the background (5–15 seconds on first run). Every future launch is instant.
+> **Accessibility permission** — macOS requires this to be granted manually in System Settings → Privacy & Security → Accessibility. The wizard opens the right page for you. Without it, the app still works — text is copied to your clipboard and you press Cmd+V.
 
 ---
 
@@ -139,6 +115,7 @@ The 🎤 icon appears in your menu bar. Model loads in the background (5–15 se
 | View history / settings | Click 🎤 in the menu bar → **History** |
 | Change microphone | History → Settings → Microphone |
 | Change model | History → Settings → Model |
+| Change language | History → Settings → Language |
 | Change hotkey | History → Settings → Hotkey → **Record** → press new combo |
 | Launch at login | History → Settings → At Login |
 | Export history | History → Export .md or Export .txt |
@@ -190,11 +167,18 @@ Whisper is accurate but not inherently fast. Getting to ~1s on an everyday Mac t
 
 ## Customization
 
-Everything is in one file — `app.py` — with a clean configuration block at the top. No framework, no build step.
+Most settings are in the **History panel** — no code editing needed:
+
+| Setting | Where |
+|---------|-------|
+| Hotkey | History → Settings → Hotkey → Record |
+| Model | History → Settings → Model |
+| Language | History → Settings → Language |
+| Microphone | History → Settings → Microphone |
 
 **Add any Whisper model from HuggingFace**
 
-Find the `MODELS` list near the top of `app.py`:
+Find the `MODELS` list near the top of `app.py` and add a line:
 
 ```python
 MODELS = [
@@ -204,22 +188,11 @@ MODELS = [
 ]
 ```
 
-Any `mlx-community` Whisper model on HuggingFace works. It appears in the Settings panel and downloads on demand.
+Any `mlx-community` Whisper model on HuggingFace works. It appears in the Settings panel immediately and downloads on demand.
 
-**Switch to a different language**
+**Change the default hotkey (for first-launch)**
 
-Find `language="en"` in the `WORKER_SCRIPT` block (~line 140) and change it:
-
-```python
-language="fr"      # French
-language="de"      # German
-language="ar"      # Arabic
-# remove it entirely for auto-detect (adds ~0.4s per recording)
-```
-
-**Change the default hotkey**
-
-The default hotkey on first launch is set by `DEFAULT_HOTKEY_KEYCODE` and `DEFAULT_HOTKEY_FLAGS` at the top of `app.py`. Existing users can change their hotkey without touching code via History → Settings → Hotkey.
+The default hotkey is `DEFAULT_HOTKEY_KEYCODE` and `DEFAULT_HOTKEY_FLAGS` at the top of `app.py`. Users can always change it without code via Settings → Hotkey.
 
 ---
 

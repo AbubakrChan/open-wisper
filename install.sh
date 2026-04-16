@@ -1,60 +1,91 @@
 #!/bin/bash
+# Open Wisper — One-command installer
+# Run with: curl -fsSL https://raw.githubusercontent.com/AbubakrChan/open-wisper/main/install.sh | bash
+
 set -e
 
+REPO="https://github.com/AbubakrChan/open-wisper.git"
+INSTALL_DIR="$HOME/Applications/OpenWisper"
+
 echo ""
-echo "Open Wisper — Install"
-echo "---------------------"
+echo "Open Wisper Installer"
+echo "====================="
 echo ""
 
-# Check Apple Silicon
+# ── Requirements ───────────────────────────────────────────────────────────────
+
 if [ "$(uname -m)" != "arm64" ]; then
-  echo "Error: Open Wisper requires Apple Silicon (M1/M2/M3/M4)."
-  echo "Intel Macs are not supported (MLX is Apple Silicon only)."
+  echo "❌  Requires Apple Silicon (M1/M2/M3/M4). Intel Macs are not supported."
   exit 1
 fi
 
-# Check macOS 12+
 OS_VER=$(sw_vers -productVersion | cut -d. -f1)
 if [ "$OS_VER" -lt 12 ]; then
-  echo "Error: macOS 12 or later required (you have $(sw_vers -productVersion))"
+  echo "❌  Requires macOS 12 or later (you have $(sw_vers -productVersion))."
   exit 1
 fi
+echo "✓  macOS $(sw_vers -productVersion), Apple Silicon"
 
-# Check Python 3.9+
-if ! python3 -c "import sys; assert sys.version_info >= (3, 9)" 2>/dev/null; then
-  echo "Error: Python 3.9 or later is required."
-  echo "Install: brew install python3  or  https://www.python.org/downloads/"
-  exit 1
-fi
-echo "Python: $(python3 --version)"
+# ── Homebrew ───────────────────────────────────────────────────────────────────
 
-# Check / install Homebrew
 if ! command -v brew &>/dev/null; then
-  echo "Error: Homebrew is required."
-  echo "Install: /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
-  exit 1
+  echo ""
+  echo "Homebrew not found — installing it now (this may take a few minutes)..."
+  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  eval "$(/opt/homebrew/bin/brew shellenv)" 2>/dev/null || true
 fi
+echo "✓  Homebrew"
 
-# Install portaudio
-if ! brew list portaudio &>/dev/null 2>&1; then
-  echo "Installing portaudio..."
-  brew install portaudio
+# ── Python 3.9+ ────────────────────────────────────────────────────────────────
+
+if ! python3 -c "import sys; assert sys.version_info >= (3, 9)" 2>/dev/null; then
+  echo "Installing Python 3..."
+  brew install python3
+fi
+echo "✓  Python $(python3 -c 'import sys; print(".".join(map(str, sys.version_info[:2])))')"
+
+# ── Download ───────────────────────────────────────────────────────────────────
+
+mkdir -p "$HOME/Applications"
+if [ -d "$INSTALL_DIR/.git" ]; then
+  echo "Updating existing installation..."
+  git -C "$INSTALL_DIR" pull --ff-only 2>/dev/null || echo "  (already up to date)"
 else
-  echo "portaudio: already installed"
+  echo "Downloading Open Wisper..."
+  git clone --depth=1 "$REPO" "$INSTALL_DIR"
 fi
+echo "✓  Open Wisper → $INSTALL_DIR"
 
-# Install Python packages
-echo "Installing Python packages..."
-pip3 install --user -r requirements.txt
+cd "$INSTALL_DIR"
+
+# ── PortAudio ──────────────────────────────────────────────────────────────────
+
+if ! brew list portaudio &>/dev/null 2>&1; then
+  echo "Installing PortAudio..."
+  brew install portaudio
+fi
+echo "✓  PortAudio"
+
+# ── Python packages ────────────────────────────────────────────────────────────
+
+echo "Installing Python packages (first time takes ~30 seconds)..."
+pip3 install --user -r "$INSTALL_DIR/requirements.txt" -q
+echo "✓  Python packages"
+
+# ── Launch ─────────────────────────────────────────────────────────────────────
 
 echo ""
-echo "Done! Run the app:"
+echo "✅  Done! Launching Open Wisper..."
 echo ""
-echo "  python3 app.py"
+nohup python3 "$INSTALL_DIR/app.py" >/dev/null 2>&1 &
+disown
+
+echo "A setup wizard will walk you through two quick steps:"
+echo "  1. Download the AI model (~750 MB, one time)"
+echo "  2. Grant microphone + accessibility access"
 echo ""
-echo "On first launch, Open Wisper will guide you through setup:"
-echo "  - Downloading the AI model (~750 MB, one time only)"
-echo "  - Granting microphone and accessibility permissions"
+echo "After that, press Fn+R anywhere to start recording."
 echo ""
-echo "After setup, press Fn+R anywhere to start recording."
+echo "To launch Open Wisper in the future:"
+echo "  python3 ~/Applications/OpenWisper/app.py"
 echo ""
