@@ -1565,6 +1565,15 @@ class VoiceApp(rumps.App):
         self.model_ready = True
         log.info("startup: ready")
 
+        # Signal Swift launcher that we're ready
+        if BACKEND_MODE:
+            try:
+                with open(STATUS_FILE, 'w') as f:
+                    f.write("ready")
+                log.info("backend: signaled ready to Swift launcher")
+            except Exception as e:
+                log.error(f"backend: failed to signal ready: {e}")
+
     def _keepalive_loop(self):
         """Periodically ping the worker with silence to keep model weights in RAM."""
         INTERVAL = 3 * 60  # every 3 minutes
@@ -1906,6 +1915,7 @@ class VoiceApp(rumps.App):
 BACKEND_MODE = False
 TRIGGER_FILE = "/tmp/openwisper-trigger"
 RESULT_FILE = "/tmp/openwisper-result"
+STATUS_FILE = "/tmp/openwisper-status"
 
 def signal_paste():
     """Signal the Swift launcher to perform paste (backend mode only)."""

@@ -4,12 +4,14 @@ import Carbon
 // IPC paths for communication with Python backend
 let triggerFile = "/tmp/openwisper-trigger"
 let resultFile = "/tmp/openwisper-result"
+let statusFile = "/tmp/openwisper-status"
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     var statusItem: NSStatusItem!
     var eventTap: CFMachPort?
     var pythonProcess: Process?
     var isRecording = false
+    var isReady = false
     var accessibilityCheckTimer: Timer?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -101,20 +103,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func showSuccessAndStart() {
-        // Brief success notification
-        let notification = NSUserNotification()
-        notification.title = "Open Wisper"
-        notification.informativeText = "Ready! Press Fn+R to record."
-        NSUserNotificationCenter.default.deliver(notification)
-
         startApp()
     }
 
     func startApp() {
+        // Clear status file
+        try? "loading".write(toFile: statusFile, atomically: true, encoding: .utf8)
+
         setupHotkey()
         startPythonBackend()
         watchResultFile()
-        statusItem.button?.title = "🎤"
+        watchStatusFile()
+
+        // Keep showing ⏳ until Python signals ready
+        statusItem.button?.title = "⏳"
     }
 
     func setupHotkey() {
@@ -148,6 +150,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func toggleRecording() {
+        // Don't allow recording until Python backend is ready
+        if !isReady {
+            // Show notification that we're still loading
+            DispatchQueue.main.async {
+                let notification = NSUserNotification()
+                notification.title = "Open Wisper"
+                notification.informativeText = "Still loading AI model, please wait..."
+                NSUserNotificationCenter.default.deliver(notification)
+            }
+            return
+        }
+
         isRecording = !isRecording
         let command = isRecording ? "start" : "stop"
         try? command.write(toFile: triggerFile, atomically: true, encoding: .utf8)
@@ -215,6 +229,31 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
             try? "".write(toFile: resultFile, atomically: true, encoding: .utf8)
             self?.simulatePaste()
+        }
+    }
+
+    func watchStatusFile() {
+        // Poll status file to know when Python backend is ready
+        Timer.scheduledTimer(withTimeInterval: 0.3, repeats: true) { [weak self] timer in
+            guard let content = try? String(contentsOfFile: statusFile, encoding: .utf8) else {
+                return
+            }
+
+            let status = content.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            if status == "ready" && self?.isReady == false {
+                self?.isReady = true
+                DispatchQueue.main.async {
+                    self?.statusItem.button?.title = "🎤"
+
+                    // Show ready notification
+                    let notification = NSUserNotification()
+                    notification.title = "Open Wisper"
+                    notification.informativeText = "Ready! Press Fn+R to record."
+                    NSUserNotificationCenter.default.deliver(notification)
+                }
+                timer.invalidate()
+            }
         }
     }
 
