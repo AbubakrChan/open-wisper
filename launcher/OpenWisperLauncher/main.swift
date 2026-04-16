@@ -34,15 +34,40 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    var recordMenuItem: NSMenuItem!
+
     func setupMenuBar() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem.button?.title = "⏳"
 
         let menu = NSMenu()
-        menu.addItem(NSMenuItem(title: "Open Wisper", action: nil, keyEquivalent: ""))
+
+        recordMenuItem = NSMenuItem(title: "⏺ Record  [Fn+R]", action: #selector(toggleRecordingMenu), keyEquivalent: "")
+        menu.addItem(recordMenuItem)
         menu.addItem(NSMenuItem.separator())
+        menu.addItem(NSMenuItem(title: "📋 History", action: #selector(openHistory), keyEquivalent: ""))
+        menu.addItem(NSMenuItem.separator())
+        menu.addItem(NSMenuItem(title: "⚙️ Settings", action: #selector(openSettings), keyEquivalent: ","))
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(quit), keyEquivalent: "q"))
+
         statusItem.menu = menu
+    }
+
+    @objc func toggleRecordingMenu() {
+        toggleRecording()
+        updateRecordMenuItem()
+    }
+
+    func updateRecordMenuItem() {
+        recordMenuItem.title = isRecording ? "⏹ Stop  [Fn+R]" : "⏺ Record  [Fn+R]"
+    }
+
+    @objc func openHistory() {
+        try? "history".write(toFile: triggerFile, atomically: true, encoding: .utf8)
+    }
+
+    @objc func openSettings() {
+        try? "settings".write(toFile: triggerFile, atomically: true, encoding: .utf8)
     }
 
     func checkAccessibility() -> Bool {
@@ -182,6 +207,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         DispatchQueue.main.async {
             self.statusItem.button?.title = self.isRecording ? "🔴" : "🎤"
+            self.updateRecordMenuItem()
         }
     }
 

@@ -1463,6 +1463,10 @@ class VoiceApp(rumps.App):
                             self._main_thread_queue.put(lambda: self._toggle(None))
                         elif content == "stop" and self.recording:
                             self._main_thread_queue.put(lambda: self._toggle(None))
+                        elif content == "history":
+                            self._main_thread_queue.put(lambda: self._show_history(None))
+                        elif content == "settings":
+                            self._main_thread_queue.put(lambda: self._show_settings())
                 except Exception as e:
                     log.error(f"backend: watcher error: {e}")
                     time.sleep(0.5)
@@ -1981,6 +1985,14 @@ class VoiceApp(rumps.App):
         ).fetchall()
         conn.close()
         history_panel.show(rows, self._get_status())
+
+    def _show_settings(self):
+        """Show the History panel with Settings tab selected."""
+        self._show_history(None)
+        # Switch to Settings tab after panel opens
+        self._main_thread_queue.put(
+            lambda: history_panel.eval_js("document.querySelector('.tab-btn:last-child').click()") if history_panel.webview else None
+        )
 
 BACKEND_MODE = False
 TRIGGER_FILE = "/tmp/openwisper-trigger"
