@@ -86,7 +86,7 @@ The only network request the app ever makes is the one-time model download from 
 **One command installs everything:**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/AbubakrChan/open-wisper/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/AbubakrChan/open-wisper/master/install.sh | bash
 ```
 
 ### What happens

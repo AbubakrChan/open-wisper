@@ -1,6 +1,6 @@
 #!/bin/bash
 # Open Wisper — One-command installer
-# Run with: curl -fsSL https://raw.githubusercontent.com/AbubakrChan/open-wisper/main/install.sh | bash
+# Run with: curl -fsSL https://raw.githubusercontent.com/AbubakrChan/open-wisper/master/install.sh | bash
 
 set -e
 
