@@ -104,7 +104,7 @@ The 🎤 icon appears in your menu bar. You're done.
 python3 ~/Applications/OpenWisper/app.py
 ```
 
-> **Accessibility permission** — macOS requires this to be granted manually in System Settings → Privacy & Security → Accessibility. The wizard opens the right page for you. Without it, the app still works — text is copied to your clipboard and you press Cmd+V.
+> **Accessibility permission** — macOS requires this to be granted manually. The wizard opens System Settings to the right page. Click **+**, select **Python**, and toggle it **ON**. Without it, the app still works — text is copied to your clipboard and you press Cmd+V.
 
 ---
 
@@ -130,14 +130,14 @@ Menu bar icon states: 🎤 ready · 🔴 recording · ⏳ loading / transcribing
 
 | Model | Speed | Languages |
 |-------|-------|-----------|
-| **Distil Large V3** ← default | fastest | English |
+| **Large V3 Turbo** ← default | fast | All languages |
+| **Distil Large V3** | fastest | English only |
 | **Turbo Q8** | fast | Multilingual |
-| **Large V3 Turbo** | fast | All languages |
 | **Tiny** | ultra fast | All (lower accuracy) |
 
-**Distil Large V3** is the default — fastest for English, ~1s total pipeline.
+**Large V3 Turbo** is the default — best quality, handles all languages, ~1–1.5s pipeline.
 
-**Large V3 Turbo** and **Turbo Q8** handle multilingual input. Switch to one of these if you speak a non-English language.
+**Distil Large V3** is the fastest option if you only speak English and want the lowest latency (~1s).
 
 **Tiny** works on any language with minimal resource usage. Accuracy is lower on technical terms and proper nouns.
 

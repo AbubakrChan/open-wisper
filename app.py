@@ -86,14 +86,14 @@ def hotkey_display_name(keycode, flags):
 
 # Default model used on first launch (can be changed in the History panel).
 # Any mlx-community Whisper model on HuggingFace will work.
-DEFAULT_MODEL = "mlx-community/distil-whisper-large-v3"
+DEFAULT_MODEL = "mlx-community/whisper-large-v3-turbo"
 
 # Models shown in the Settings panel. Add any mlx-community Whisper model here.
 # Format: ("huggingface-repo-id", "Display name shown in UI")
 MODELS = [
-    ("mlx-community/distil-whisper-large-v3",       "Distil Large V3 — fastest, English (default)"),
+    ("mlx-community/whisper-large-v3-turbo",         "Large V3 Turbo — best quality, all languages (default)"),
+    ("mlx-community/distil-whisper-large-v3",        "Distil Large V3 — fastest, English only"),
     ("LibraxisAI/whisper-large-v3-turbo-mlx-q8",    "Turbo Q8 — fast, multilingual"),
-    ("mlx-community/whisper-large-v3-turbo",         "Large V3 Turbo — multilingual"),
     ("mlx-community/whisper-tiny",                   "Tiny — ultra fast, lower accuracy"),
 ]
 
@@ -877,7 +877,7 @@ h1 { font-size: 20px; font-weight: 700; text-align: center; color: #3d3529; marg
   <div class="card step" id="s2">
     <div class="icon">⬇️</div>
     <h1>Downloading AI Model</h1>
-    <p class="subtitle" id="dl-subtitle">Fetching Distil Whisper (~750 MB)…</p>
+    <p class="subtitle" id="dl-subtitle">Downloading AI model…</p>
     <div class="progress-wrap"><div class="progress-bar" id="dl-bar"></div></div>
     <p class="progress-info" id="dl-info">Connecting…</p>
   </div>
@@ -899,7 +899,7 @@ h1 { font-size: 20px; font-weight: 700; text-align: center; color: #3d3529; marg
       <div class="perm-icon">⌨️</div>
       <div class="perm-info">
         <div class="perm-title">Accessibility</div>
-        <div class="perm-hint">For auto-pasting text into apps</div>
+        <div class="perm-hint">Click "Open Settings" → click <strong>+</strong> → select <strong>Python</strong> → toggle <strong>ON</strong></div>
       </div>
       <span class="perm-status" id="ax-status">⬜</span>
       <button class="perm-btn" id="ax-btn" onclick="send({type:\'check_ax\'})">Open Settings</button>
@@ -1454,7 +1454,7 @@ class VoiceApp(rumps.App):
             # Just show a notification so the user knows why auto-paste won't work.
             self._main_thread_queue.put(lambda: rumps.notification(
                 "Open Wisper", "Grant Accessibility for auto-paste",
-                "System Settings → Privacy & Security → Accessibility → enable Open Wisper"
+                "System Settings → Privacy & Security → Accessibility → enable Python"
             ))
 
         saved_model = get_setting("model", DEFAULT_MODEL)
