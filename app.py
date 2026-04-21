@@ -44,9 +44,12 @@ from Quartz import (
 )
 from Quartz import CFMachPortCreateRunLoopSource, CFRunLoopAddSource, CFRunLoopGetMain, kCFRunLoopCommonModes
 from AppKit import (
-    NSWindow, NSBackingStoreBuffered, NSMakeRect,
+    NSWindow, NSPanel, NSBackingStoreBuffered, NSMakeRect, NSMakePoint,
     NSWindowStyleMaskTitled, NSWindowStyleMaskClosable, NSWindowStyleMaskResizable,
-    NSApp, NSWorkspace,
+    NSWindowStyleMaskBorderless, NSWindowStyleMaskNonactivatingPanel,
+    NSFloatingWindowLevel,
+    NSWindowCollectionBehaviorCanJoinAllSpaces, NSWindowCollectionBehaviorFullScreenAuxiliary,
+    NSApp, NSWorkspace, NSScreen, NSColor,
 )
 from WebKit import WKWebView, WKWebViewConfiguration, WKUserContentController
 from Foundation import NSObject, NSURL
@@ -745,6 +748,176 @@ class HistoryPanel:
 history_panel = HistoryPanel()
 
 
+# ---------------------------------------------------------------------------
+# Recording overlay — floating pill with animated waveform + Stop/Cancel
+# ---------------------------------------------------------------------------
+
+RECORDING_OVERLAY_HTML = r"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+  html, body { margin: 0; padding: 0; background: transparent; overflow: hidden;
+               font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+               -webkit-user-select: none; }
+  .pill {
+    display: flex; align-items: center; gap: 14px;
+    margin: 10px; padding: 0 18px; height: 60px;
+    background: rgba(20, 20, 22, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
+    color: #f5f5f7;
+    -webkit-backdrop-filter: blur(24px);
+  }
+  .label { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; }
+  .dot {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: #ff3b30;
+    box-shadow: 0 0 10px rgba(255, 59, 48, 0.8);
+    animation: dot-pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes dot-pulse {
+    0%,100% { opacity: 1;   transform: scale(1); }
+    50%     { opacity: 0.4; transform: scale(0.85); }
+  }
+  .wave { flex: 1; display: flex; align-items: center; justify-content: center;
+          gap: 2px; height: 36px; min-width: 180px; }
+  .wave i {
+    display: block; width: 2px; height: 6px; border-radius: 2px;
+    background: linear-gradient(to top, #ffffff, #d0d0d5);
+    transform-origin: center;
+    animation-name: wave-pulse;
+    animation-iteration-count: infinite;
+    animation-timing-function: ease-in-out;
+    will-change: transform, opacity;
+  }
+  @keyframes wave-pulse {
+    0%,100% { transform: scaleY(0.22); opacity: 0.55; }
+    50%     { transform: scaleY(2.4);  opacity: 1.0; }
+  }
+  .actions { display: flex; align-items: center; gap: 8px; }
+  button {
+    font: inherit; font-size: 12px; font-weight: 500;
+    padding: 6px 12px; border-radius: 8px; border: 0; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
+    color: #f5f5f7; background: rgba(255,255,255,0.10);
+    transition: background 120ms ease;
+  }
+  button:hover  { background: rgba(255,255,255,0.18); }
+  button:active { background: rgba(255,255,255,0.26); }
+  button.stop        { background: #ff3b30; }
+  button.stop:hover  { background: #ff544a; }
+  button.stop:active { background: #e6342a; }
+  .hint { opacity: 0.55; font-size: 11px; margin-left: 2px; }
+</style></head><body>
+  <div class="pill">
+    <div class="label"><span class="dot"></span><span>Recording</span></div>
+    <div class="wave" id="wave"></div>
+    <div class="actions">
+      <button class="stop" onclick="send('stop')">Stop <span class="hint">HOTKEY_HINT</span></button>
+      <button onclick="send('cancel')">Cancel <span class="hint">Esc</span></button>
+    </div>
+  </div>
+<script>
+  (function () {
+    var wave = document.getElementById('wave');
+    var BARS = 44;
+    for (var i = 0; i < BARS; i++) {
+      var b = document.createElement('i');
+      // Staggered duration + delay so bars don't all pulse in sync.
+      var dur   = 0.55 + Math.random() * 0.9;   // 0.55 – 1.45s
+      var delay = -Math.random() * 1.5;         // negative = mid-animation start
+      b.style.animationDuration = dur.toFixed(2) + 's';
+      b.style.animationDelay    = delay.toFixed(2) + 's';
+      wave.appendChild(b);
+    }
+    window.send = function (action) {
+      try { window.webkit.messageHandlers.action.postMessage({action: action}); }
+      catch (e) {}
+    };
+  })();
+</script>
+</body></html>
+"""
+
+
+class RecordingOverlay:
+    """Floating pill shown during recording. One NSPanel + WKWebView, built lazily."""
+
+    def __init__(self):
+        self.panel = None
+        self.webview = None
+        self._handler = None
+        self.on_stop = None     # set by VoiceApp
+        self.on_cancel = None   # set by VoiceApp
+
+    def show(self, hotkey_name="Fn+R"):
+        if self.panel is None:
+            self._build(hotkey_name)
+        else:
+            # Hotkey may have changed since last show — rebuild HTML.
+            self._load_html(hotkey_name)
+        self._position_bottom_center()
+        self.panel.orderFrontRegardless()
+
+    def hide(self):
+        if self.panel is not None:
+            self.panel.orderOut_(None)
+
+    def _build(self, hotkey_name):
+        w, h = 520, 80
+        style = NSWindowStyleMaskBorderless | NSWindowStyleMaskNonactivatingPanel
+        self.panel = NSPanel.alloc().initWithContentRect_styleMask_backing_defer_(
+            NSMakeRect(0, 0, w, h), style, NSBackingStoreBuffered, False
+        )
+        self.panel.setOpaque_(False)
+        self.panel.setBackgroundColor_(NSColor.clearColor())
+        self.panel.setHasShadow_(True)
+        self.panel.setLevel_(NSFloatingWindowLevel)
+        self.panel.setCollectionBehavior_(
+            NSWindowCollectionBehaviorCanJoinAllSpaces
+            | NSWindowCollectionBehaviorFullScreenAuxiliary
+        )
+        self.panel.setHidesOnDeactivate_(False)
+        self.panel.setMovableByWindowBackground_(False)
+
+        config = WKWebViewConfiguration.alloc().init()
+        self._handler = ScriptMessageHandler.alloc().initWithCallback_(self._on_message)
+        config.userContentController().addScriptMessageHandler_name_(self._handler, "action")
+
+        self.webview = WKWebView.alloc().initWithFrame_configuration_(
+            NSMakeRect(0, 0, w, h), config
+        )
+        self.webview.setAutoresizingMask_(0b010010)
+        self.webview.setValue_forKey_(True, "drawsTransparentBackground")
+        self.panel.setContentView_(self.webview)
+        self._load_html(hotkey_name)
+
+    def _load_html(self, hotkey_name):
+        html = RECORDING_OVERLAY_HTML.replace("HOTKEY_HINT", hotkey_name or "Fn+R")
+        self.webview.loadHTMLString_baseURL_(html, NSURL.URLWithString_("file:///"))
+
+    def _position_bottom_center(self):
+        screen = NSScreen.mainScreen()
+        if screen is None:
+            return
+        vf = screen.visibleFrame()
+        size = self.panel.frame().size
+        x = vf.origin.x + (vf.size.width  - size.width)  / 2.0
+        y = vf.origin.y + 40  # 40px above the bottom of the visible frame
+        self.panel.setFrameOrigin_(NSMakePoint(x, y))
+
+    def _on_message(self, body):
+        if not hasattr(body, 'get'):
+            return
+        action = body.get("action")
+        if action == "stop" and self.on_stop:
+            self.on_stop()
+        elif action == "cancel" and self.on_cancel:
+            self.on_cancel()
+
+
+recording_overlay = RecordingOverlay()
+
+
 def download_model_with_progress(model, on_progress):
     """
     Download a HuggingFace model, calling on_progress(pct, downloaded_mb, total_mb).
@@ -1312,6 +1485,7 @@ class VoiceApp(rumps.App):
         self._status_hidden = False
         self.recording = False
         self.processing = False
+        self._cancelled = False
         self.frames = []
         self.stream = None
         self.pa = None
@@ -1340,6 +1514,11 @@ class VoiceApp(rumps.App):
         history_panel.on_model_change = self._change_model
         history_panel.on_hotkey_record = self._set_hotkey_recording
         history_panel._current_hotkey_name = hotkey_display_name(self._hotkey_keycode, self._hotkey_flags)
+
+        # Recording overlay — stop/cancel callbacks hop to the main thread so AppKit
+        # mutations (NSStream teardown, etc.) don't run on the WebKit IPC thread.
+        recording_overlay.on_stop   = lambda: self._main_thread_queue.put(lambda: self._stop_recording())
+        recording_overlay.on_cancel = lambda: self._main_thread_queue.put(lambda: self._cancel_recording())
 
         threading.Thread(target=self._startup, daemon=True).start()
         threading.Thread(target=self._keepalive_loop, daemon=True).start()
@@ -1414,6 +1593,12 @@ class VoiceApp(rumps.App):
                         if useful_flags:
                             self._apply_new_hotkey(keycode, useful_flags)
                     return None  # suppress all keypresses while recording
+                # Esc while recording cancels and discards the audio. Only intercept
+                # bare Esc — leave Cmd/Shift/etc+Esc alone so app-level shortcuts still work.
+                if self.recording and keycode == 53 and not (flags & (0x100000 | 0x80000 | 0x40000 | 0x20000)):
+                    log.info("hotkey: Esc pressed during recording → cancel")
+                    self._cancel_recording()
+                    return None
                 if keycode == self._hotkey_keycode and (flags & self._hotkey_flags):
                     log.info(f"hotkey: {hotkey_display_name(self._hotkey_keycode, self._hotkey_flags)} pressed")
                     self._toggle(None)
@@ -1750,6 +1935,7 @@ class VoiceApp(rumps.App):
         self.target_app = get_frontmost_app()
         log.info(f"recording: START, target_app={self.target_app}")
         self.recording = True
+        self._cancelled = False
         self.frames = []
         self.title = "🔴"
         self.menu["⏺ Record  [Fn+R]"].title = "⏹ Stop  [Fn+R]"
@@ -1787,6 +1973,10 @@ class VoiceApp(rumps.App):
                 return
 
         threading.Thread(target=self._record_loop, daemon=True).start()
+        try:
+            recording_overlay.show(hotkey_display_name(self._hotkey_keycode, self._hotkey_flags))
+        except Exception as e:
+            log.error(f"recording_overlay: show failed: {e}")
 
     def _record_loop(self):
         start_time = time.time()
@@ -1813,6 +2003,12 @@ class VoiceApp(rumps.App):
 
         # Always cleanup from THIS thread (the one doing stream.read)
         self._cleanup_stream()
+        if self._cancelled:
+            log.info("record_loop: cancelled, skipping transcription")
+            self.frames = []
+            self.title = "🎤"
+            self._reset_menu_title()
+            return
         self._do_transcription()
 
     def _cleanup_stream(self):
@@ -1840,6 +2036,27 @@ class VoiceApp(rumps.App):
             log.info(f"stop_recording: manual stop, frames={len(self.frames)}")
         # Don't touch the stream here — _record_loop will clean up safely
         threading.Thread(target=lambda: play_sound("Pop"), daemon=True).start()
+        try:
+            recording_overlay.hide()
+        except Exception as e:
+            log.error(f"recording_overlay: hide failed: {e}")
+
+    def _cancel_recording(self):
+        """Stop recording and discard the audio — no transcription, no paste."""
+        with self._lock:
+            if not self.recording:
+                log.info("cancel_recording: not recording")
+                return
+            self.recording = False
+            self._cancelled = True
+            log.info(f"cancel_recording: manual cancel, frames={len(self.frames)}")
+        threading.Thread(target=lambda: play_sound("Pop"), daemon=True).start()
+        try:
+            recording_overlay.hide()
+        except Exception as e:
+            log.error(f"recording_overlay: hide failed: {e}")
+        self.title = "🎤"
+        self._reset_menu_title()
 
     def _do_transcription(self):
         """Start transcription if we have enough audio."""
