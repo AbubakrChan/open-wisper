@@ -241,6 +241,32 @@ class TranscribeWorker:
         # Warm up: transcribe a tiny silent WAV to page model weights into memory
         self._warmup()
 
+    def _readline_timeout(self, timeout, label):
+        """Read one line from worker stdout with a timeout. On timeout, SIGKILL the
+        worker so the next call sees a dead process and restarts it cleanly."""
+        result = []
+        def reader():
+            try:
+                result.append(self._proc.stdout.readline())
+            except Exception as e:
+                result.append(e)
+        t = threading.Thread(target=reader, daemon=True)
+        t.start()
+        t.join(timeout)
+        if t.is_alive():
+            log.error(f"worker: {label} timed out after {timeout}s — killing subprocess")
+            try:
+                self._proc.kill()
+                self._proc.wait(timeout=2)
+            except Exception as e:
+                log.warning(f"worker: kill after timeout failed: {e}")
+            self._proc = None
+            raise TimeoutError(f"worker hung ({label})")
+        val = result[0]
+        if isinstance(val, Exception):
+            raise val
+        return val
+
     def transcribe(self, wav_path):
         with self._lock:
             if not self._proc or self._proc.poll() is not None:
@@ -252,7 +278,7 @@ class TranscribeWorker:
             req = json.dumps({"path": wav_path, "language": language})
             self._proc.stdin.write(req + "\n")
             self._proc.stdin.flush()
-            line = self._proc.stdout.readline()
+            line = self._readline_timeout(120, "transcribe")
             if not line:
                 raise RuntimeError("worker: no response")
             result = json.loads(line)
@@ -270,6 +296,10 @@ class TranscribeWorker:
     def _warmup(self):
         """Transcribe 0.5s of silence to page model weights into memory."""
         try:
+            if not self._proc or self._proc.poll() is not None:
+                log.warning("worker: warmup skipped, process dead — restarting")
+                self.start()
+                return  # start() already runs its own warmup
             import wave, tempfile, struct
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
                 path = f.name
@@ -282,7 +312,7 @@ class TranscribeWorker:
             t0 = time.time()
             self._proc.stdin.write(json.dumps({"path": path, "language": "en"}) + "\n")
             self._proc.stdin.flush()
-            self._proc.stdout.readline()  # discard result
+            self._readline_timeout(15, "warmup")  # discard result
             os.unlink(path)
             log.info(f"worker: warmup done in {time.time()-t0:.2f}s")
         except Exception as e:
